@@ -20,3 +20,11 @@
 - [Google Apps Script 網頁應用程式](https://developers.google.com/apps-script/guides/web)
 - [HTML service 與伺服器通訊](https://developers.google.com/apps-script/guides/html/communication)
 - [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+
+## 本次建置狀態（2026-10-07）
+
+已在教師帳戶建立 [大四品質管理企劃教室 GAS 專案](https://script.google.com/home/projects/1r3q-Lak_jsl3hTfxBC2m1tAUTM3E6AAlaaxzFxnp6vmdxdBwtt8vHRp3/edit)，程式已儲存。該專案使用 Code-github.gs.example 的等效程式：從固定 GitHub 提交讀取公開 HTML，不向 GitHub 傳送學生資料；另需外部請求權限。
+
+首次執行 setup 時 Google 顯示「系統已封鎖這個應用程式」，未完成授權，故沒有建立試算表、未部署 /exec、未做真實寫入驗證。需帳戶持有人依 Google 帳戶或機構政策處理 Apps Script 授權阻擋。不要以改網址等方式繞過阻擋。處理後再執行 setup、部署，並完成上列實際測試。
+
+若希望免除外部讀取，改用 Code.gs 和本地 Index.html 的雙檔方式；仍需要 Google 試算表授權。
