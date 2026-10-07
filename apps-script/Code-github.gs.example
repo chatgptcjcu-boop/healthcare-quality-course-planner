@@ -10,7 +10,7 @@ function setup() {
   console.log('教師試算表：https://docs.google.com/spreadsheets/d/' + props.getProperty('SHEET_ID'));
   console.log('課程代碼（只提供給授課學生）：' + props.getProperty('CLASS_CODE'));
 }
-function doGet() { const url='https://raw.githubusercontent.com/chatgptcjcu-boop/healthcare-quality-course-planner/a6d0d82147356c70d34ac2c83ebb3c21e376f71f/apps-script/Index.html'; return HtmlService.createHtmlOutput(UrlFetchApp.fetch(url).getContentText()).setTitle('品質管理企劃教室').addMetaTag('viewport', 'width=device-width, initial-scale=1'); }
+function doGet() { const url='https://raw.githubusercontent.com/chatgptcjcu-boop/healthcare-quality-course-planner/06552f7/apps-script/Index.html'; return HtmlService.createHtmlOutput(UrlFetchApp.fetch(url).getContentText()).setTitle('品質管理企劃教室').addMetaTag('viewport', 'width=device-width, initial-scale=1'); }
 function doPost(e) {
   try {
     const r = submitProposal(JSON.parse(e.parameter.payload || '{}'));
