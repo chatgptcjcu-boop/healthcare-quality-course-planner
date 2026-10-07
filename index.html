@@ -1,25 +1,703 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>品質管理企劃教室</title><style>
-:root{font-family:system-ui,"Noto Sans TC",sans-serif;color:#193b3b;background:#f3f5ef}*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}header{background:#183e3c;color:white;padding:40px max(5vw,20px)}header small{color:#c4d7bc}h1{font-size:clamp(26px,4vw,42px);margin:12px 0}header p{max-width:750px;line-height:1.8}.layout{display:grid;grid-template-columns:230px minmax(0,850px);gap:32px;max-width:1180px;margin:32px auto;padding:0 20px}nav{position:sticky;top:20px;align-self:start}nav a{display:block;color:#245551;padding:12px;text-decoration:none;border-left:3px solid #adc3ad;margin:8px 0}main{min-width:0}section{background:white;padding:28px;margin-bottom:24px;border:1px solid #dce4da;border-radius:8px;scroll-margin-top:20px}h2{font-size:23px;margin-top:0}label{display:block;font-weight:650;margin:20px 0 8px}input,textarea,select{font:inherit;width:100%;padding:12px;border:1px solid #95aaa1;border-radius:4px;color:#163c39;background:white}textarea{min-height:120px;resize:vertical;line-height:1.7}button,.button{font:inherit;background:#245c53;color:white;border:0;border-radius:4px;padding:11px 17px;cursor:pointer;text-decoration:none;display:inline-block;margin:5px 3px 5px 0}button.secondary{background:#e9eee5;color:#24473c}button:disabled{opacity:.5;cursor:wait}.note{background:#e9efe4;padding:16px;line-height:1.8}.member{display:grid;grid-template-columns:1fr 1.3fr 90px 65px;gap:8px;margin:12px 0}.member button{margin:0;background:#e9eee5;color:#24473c}#status{line-height:1.8;font-weight:650;white-space:pre-wrap}footer{padding:25px;text-align:center}input:focus,textarea:focus,button:focus-visible,select:focus{outline:3px solid #ccaa53;outline-offset:2px}.check{display:flex;gap:10px;align-items:start}.check input{width:auto;margin-top:5px}small{line-height:1.7}.tools{margin:18px 0}@media(max-width:760px){.layout{display:block}nav{position:static;display:flex;overflow:auto;gap:10px}nav a{white-space:nowrap}.member{grid-template-columns:1fr 1fr}.member select,.member button{width:100%}section{padding:20px}}@media print{nav,.tools,button,#connection,.check{display:none}.layout{display:block;margin:0}section{break-inside:avoid;border:0}textarea{min-height:initial}header{padding:20px;color:black;background:white}input,textarea,select{border:0}}
-</style></head><body><header><small>大四企劃案 · 職能導向課程設計</small><h1>品質管理企劃教室</h1><p>從工作問題出發，設計一門讓入職新人能完成真實任務的課程。選擇醫院或長照場域，依需求、職能、課程、評量與改善逐步完成企劃。</p></header><div class="layout"><nav id="nav" aria-label="填寫段落"></nav><main><p class="note">教學演練版，參考所提供 iCAP 報告書格式。此作業不代表 iCAP 認證或正式申請。請使用模擬資料，不填病人、住民或機構機密資料。姓名與學號僅用於教師評量。</p><div class="tools"><button id="hospital" class="secondary" type="button">載入醫院範例</button><button id="care" class="secondary" type="button">載入長照範例</button><button id="export" class="secondary" type="button">下載備份</button><label class="button">匯入備份<input type="file" id="import" accept="application/json" hidden></label><button id="print" class="secondary" type="button">列印</button><button id="clear" class="secondary" type="button">清除本機草稿</button></div><form id="planner"><section id="students"><h2>學生與主題</h2><label for="track">企劃主題</label><select id="track" name="track"><option>醫院品質管理企劃課</option><option>長照機構品質管理企劃課</option></select><label for="phase">成果狀態</label><select id="phase" name="phase"><option>規劃中，尚未試辦</option><option>已完成教學試辦</option></select><label for="classCode">教師提供的課程代碼（送出時必填）</label><input id="classCode" autocomplete="off"><p>請填寫您的姓名、學號與年級。每份企劃僅限一位同學。</p><div id="members"></div><button type="button" id="addMember" hidden class="secondary">新增組員</button></section><div id="sections"></div><section id="connection"><h2>提交企劃</h2><p id="connectionState" class="note"></p><label class="check"><input id="consent" type="checkbox" required>我確認資料用於課堂評量，並且已區分模擬資料、預計成果與實際證據。</label><button id="submit" type="submit">提交到教師試算表</button><p id="status" role="status" aria-live="polite"></p><small id="draftStatus">草稿只儲存在此瀏覽器；共用電腦使用後請清除。</small></section></form></main></div><footer>品質管理企劃教室 · 需求 → 職能 → 訓練 → 證據 → 改善</footer><script>
-const WEB_APP_URL = ''; // 教師部署 Apps Script 後填入 /exec 網址
-const SECTIONS = [["基本資料", [["project", "企劃案名稱", "例如：長照機構新人異常事件通報培訓"], ["team", "班級", "例如：醫管四甲第 3 組"], ["courseEn", "課程英文名稱（選填）", ""], ["unit", "規劃／協力單位", "使用模擬機構名稱"], ["period", "預計辦訓期間", "起訖日期"]]], ["壹、課程資訊", [["need", "訓練需求", "問題現況、需求調查方法、落差及資料來源；限 1000 字"], ["intro", "課程簡介", "描述新人完成課程後能處理的工作；限 1000 字"], ["purpose", "課程目的", "寫成可觀察、可評量的工作表現；限 1000 字"], ["hours", "總時數", "數字，例如 12"], ["level", "職能級別及判斷理由", "依職能來源填寫；無可驗證依據時填「待分析」，勿自行宣稱官方級別"], ["audience", "主要對象／參訓資格", "到職 3 個月內之品質管理行政新人"], ["prerequisite", "先備條件", "基本文書能力、機構入職訓練等"], ["basis", "職能依據與來源", "預設採自行職能分析：職務訪談、工作流程、來源日期及連結"]]], ["表 1–2｜職能分析與課程地圖", [["competencies", "表 1：職能表", "逐列填寫：任務代碼／中英文任務／行為指標 P／級別 L／知識 K／技能 S。\n例 T1：依模擬資料計算指標；P1 正確定義分子分母；K1 指標定義；S1 試算表計算。"], ["map", "表 2：課程地圖", "先備條件 → 單元順序 → 對應任務 → 評量 → 工作應用；可填圖檔的非公開連結"]]], ["表 3–8｜課程設計", [["objectives", "表 3：教學訓練目標與職能內涵", "逐單元：中英文名稱／級別／目標／P／K／S。目標包含條件、行為與達成標準。"], ["content", "表 4：課程內容與時數", "逐單元：名稱／時數／大綱；各單元時數加總應等於總時數"], ["methods", "表 5：教學方法", "逐單元：目標／方法／選用理由，如案例、示範、演練、討論"], ["resources", "表 6：教材與資源", "逐單元：教材名稱／設備／來源／授權；全部採模擬或去識別資料"], ["faculty", "表 7：師資條件", "逐單元：授課教師／評量人員／協助人員的資格條件"], ["assessment", "表 8：評量方式與工具", "逐單元：對應 P／評量方式／工具／評分規準／達標門檻；不要只用滿意度當能力證據"]]], ["表 9–12｜實施與評估", [["staff", "表 9：實際執行人員資格", "未試辦填「未執行」；已試辦填各單元人員角色與資格，勿填未經同意的個資"], ["pilot", "表 10：試辦成果", "未試辦填「預計」並列招募、時程、預計人數；已試辦填日期、參訓／完訓／達教學結訓標準人數"], ["evidence", "表 11：學習成果證據", "逐單元：作品／評量表／操作紀錄／證據連結；註明預計或實際"], ["completion", "表 12：課程結訓標準", "至少一項：各階段、學科、術科或其他；例指標計算 80 分且通報檢核全部關鍵項通過"]]], ["參、ADDIE 佐證與改善", [["addie", "分析／設計／發展／執行／評估佐證", "A 職能分析、需求訪談；D 課程目標／教材；I 試辦紀錄；E 工具、成果、成績及管控改善。逐項註明資料狀態。"], ["stakeholders", "利益關係人參與紀錄", "模擬訪談或真實訪談請分清楚；記錄角色、日期、意見及如何改課程"], ["improvement", "品質改善企劃：PDCA、指標與時程", "問題、基準值、目標、原因分析、措施、負責角色、期限、指標定義、資料來源、檢討；數值註明假設"], ["references", "參考文獻與 AI 使用揭露", "來源網址／查閱日期／採用內容；AI 協助部分及人工查核方式"]]]];
-const FIELDS=SECTIONS.flatMap(s=>s[1].map(f=>f[0]));
-const $=id=>document.getElementById(id), form=$('planner');
-const native=typeof google!=='undefined'&&google.script&&google.script.run;
-$('connectionState').textContent=native?'已開啟教師提交系統。送出成功後會顯示儲存回執。':WEB_APP_URL?'已設定教師收件系統，送出後將開啟儲存回執視窗。':'目前為可填寫的展示版；Google Sheet 尚未連接。可先下載備份；請教師依 GitHub 操作文件完成連接。';
-SECTIONS.forEach(([title,fields],i)=>{const sec=document.createElement('section');sec.id='s'+i;const h=document.createElement('h2');h.textContent=title;sec.append(h);fields.forEach(([key,label,hint])=>{const l=document.createElement('label');l.htmlFor=key;l.textContent=label;let input=document.createElement(['project','team','hours','courseEn','unit','period'].includes(key)?'input':'textarea');input.id=key;input.name=key;input.placeholder=hint;input.maxLength=['need','intro','purpose'].includes(key)?1000:6000;if(key==='hours'){input.type='number';input.min='0.5';input.max='1000';input.step='0.5'}if(['project','team','need','purpose','hours','basis','competencies','map','objectives','content','assessment','completion','improvement'].includes(key))input.required=true;sec.append(l,input)});$('sections').append(sec);const a=document.createElement('a');a.href='#s'+i;a.textContent=title;$('nav').append(a)});
-function addMember(m={}){if($('members').children.length>=1)return;const row=document.createElement('div');row.className='member';['name','studentId'].forEach((key,i)=>{const el=document.createElement('input');el.dataset.key=key;el.placeholder=i?'學號':'姓名';el.setAttribute('aria-label',i?'學號':'姓名');el.required=true;el.maxLength=60;el.value=m[key]||'';row.append(el)});const select=document.createElement('select');select.dataset.key='grade';select.setAttribute('aria-label','年級');['一','二','三','四','其他'].forEach(x=>select.add(new Option(x+'年級',x+'年級')));select.value=m.grade||'四年級';row.append(select);const b=document.createElement('button');b.type='button';b.textContent='移除';b.onclick=()=>{if($('members').children.length===1)return;row.remove();save()};b.hidden=true;row.append(b);$('members').append(row)}
-function data(){const d={schemaVersion:1,submissionId:requestId,track:$('track').value,phase:$('phase').value,members:[...$('members').children].map(r=>Object.fromEntries([...r.querySelectorAll('[data-key]')].map(e=>[e.dataset.key,e.value.trim()])))};FIELDS.forEach(k=>d[k]=$(k).value.trim());return d}
-let requestId=crypto.randomUUID();
-function restore(d){if(!d||d.schemaVersion!==1||!Array.isArray(d.members)||!d.members.length||d.members.length!==1)throw Error('備份格式不符');requestId=typeof d.submissionId==='string'?d.submissionId:crypto.randomUUID();FIELDS.forEach(k=>$(k).value=typeof d[k]==='string'?d[k]:'');if(['醫院品質管理企劃課','長照機構品質管理企劃課'].includes(d.track))$('track').value=d.track;if(['規劃中，尚未試辦','已完成教學試辦'].includes(d.phase))$('phase').value=d.phase;$('members').replaceChildren();d.members.forEach(addMember)}
-function save(){try{localStorage.setItem('quality-planner-v1',JSON.stringify(data()));$('draftStatus').textContent='已儲存本機草稿。共用電腦使用後請清除；課程代碼不存入草稿。'}catch(e){$('draftStatus').textContent='此瀏覽器無法儲存草稿，請下載備份。'}}
-try{const old=localStorage.getItem('quality-planner-v1');if(old)restore(JSON.parse(old));else addMember()}catch(e){addMember();$('status').textContent='無法還原草稿，請匯入備份。'}
-form.addEventListener('input',save);$('addMember').onclick=()=>{addMember();save()};
-function download(d){const blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='品質管理企劃備份.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-$('export').onclick=()=>download(data());$('import').onchange=async e=>{try{restore(JSON.parse(await e.target.files[0].text()));save();$('status').textContent='已匯入備份。'}catch(err){$('status').textContent='匯入失敗：'+err.message}e.target.value=''};
-$('clear').onclick=()=>{if(confirm('清除本機草稿與目前內容？請先下載備份。')){try{localStorage.removeItem('quality-planner-v1')}catch(e){}location.reload()}};
-$('print').onclick=()=>{document.querySelectorAll('textarea').forEach(t=>{t.style.height='auto';t.style.height=t.scrollHeight+'px'});window.print()};
-function example(care){if(!confirm('將覆蓋企劃內容，學生資料會保留。建議先下載備份。'))return;const topic=care?'長照機構':'醫院';FIELDS.forEach(k=>$(k).value='');$('track').value=topic+'品質管理企劃課';$('phase').value='規劃中，尚未試辦';const d={project:topic+'入職新人品質指標與異常事件通報課程',team:'四年級班級（請修改）',hours:'12',need:'【模擬情境】新人對品質指標分子分母與異常事件通報流程不熟悉。規劃以主管訪談、匿名問卷與模擬資料測驗分析需求；目前尚無真實調查結果。',intro:'以去識別模擬案例，練習指標計算、問題分析、通報與改善提案。',purpose:'給定模擬資料與流程圖，新人能正確計算兩項指標，完成通報演練，並提出可追蹤的 PDCA 改善計畫。',audience:'到職三個月內品質管理行政新人；實務案例由合格專業人員審查。',prerequisite:'具基本文書與試算表能力；已完成機構入職訓練。',level:'待職務分析確認，不宣稱官方職能級別。',basis:'自行職能分析（教學草案）。預計訪談品質主管與資深人員，蒐集 SOP、工作流程並註明版本。',competencies:'T1 指標資料整理；P1 依定義選取分子分母並核對資料；K1 指標定義與資料品質；S1 試算表計算。\nT2 異常事件通報；P2 依模擬流程完成全部關鍵欄位；K2 機構通報流程；S2 紀錄、溝通。\nT3 改善企劃；P3 提出含指標、時程與負責角色的 PDCA；K3 根因分析；S3 企劃撰寫。',map:'入職及文書能力 → 單元1 指標與資料 → 單元2 通報演練 → 單元3 原因分析 → 單元4 PDCA 提案 → 實作評量',objectives:'單元1 對應 P1：給定模擬資料計算兩項指標，正確率至少 80%。\n單元2 對應 P2：完成通報案例，關鍵項目全部通過。\n單元3/4 對應 P3：提出可追蹤改善方案，量規至少 80 分。',content:'單元1 品質概念與指標計算 3 小時。\n單元2 異常事件紀錄與通報 3 小時。\n單元3 問題界定與根因分析 3 小時。\n單元4 PDCA 提案與成果展示 3 小時。合計 12 小時。',methods:'單元1 示範與演練；單元2 案例與角色演練；單元3 討論與原因分析；單元4 專題與口頭報告。',resources:'模擬資料表、機構示意 SOP、案例卡、魚骨圖、PDCA 工作表、電腦與投影設備；教材預計自行製作。',faculty:'授課與評量：具該場域品質管理實務經驗及教學能力；課程協助：熟悉試算表與教學紀錄。',assessment:'P1 試算表實作，計算正確率 80% 以上。\nP2 通報情境演練，檢核表關鍵項全部通過。\nP3 PDCA 作業量規：問題與證據 25、原因 20、措施 25、指標 20、呈現 10；至少 80 分。',staff:'未執行；預計依表7選任。',pilot:'【預計】招募 10 位模擬學員，依 12 小時課程進行教學試辦。尚無實際參訓、完訓與結訓資料。',evidence:'【預計】指標計算作業、通報檢核表、原因分析圖、PDCA 提案、前後測及回饋表。',completion:'指標計算至少80分；通報所有關鍵項通過；改善提案至少80分。不使用 iCAP 認證字樣。',addie:'A 預計需求訪談與職能分析；D 預計課程地圖、教材及評量表；I 預計試辦紀錄；E 預計成果評量與改善紀錄。',stakeholders:'尚未訪談；預計邀請品質主管、資深人員、入職新人及教學者檢視需求與教材。',improvement:'【模擬假設】以新人通報完整率為指標：分子=關鍵欄位完整的通報件數；分母=全部模擬通報件數。假設基準60%、目標90%。P 分析欄位遺漏原因；D 培訓與提示卡；C 每週抽核；A 修訂教材。所有數字為教學假設。',references:'待補：職務訪談紀錄、SOP 版本、教材來源及查閱日期。若使用 AI，記錄用途並由人工查核。'};Object.entries(d).forEach(([k,v])=>$(k).value=v);requestId=crypto.randomUUID();save()}
-$('hospital').onclick=()=>example(false);$('care').onclick=()=>example(true);
-form.onsubmit=e=>{e.preventDefault();$('status').textContent='';if(!$('classCode').value.trim()){$('status').textContent='請填入教師提供的課程代碼。';$('classCode').focus();return}const payload={...data(),classCode:$('classCode').value.trim()};if(!native&&!WEB_APP_URL){$('status').textContent='尚未連接 Google Sheet，未送出。請下載備份。';return}$('submit').disabled=true;if(native){google.script.run.withSuccessHandler(r=>{$('submit').disabled=false;$('status').textContent='已存入教師試算表。回執：'+r.receipt+'\n時間：'+r.savedAt;requestId=crypto.randomUUID();save()}).withFailureHandler(err=>{$('submit').disabled=false;$('status').textContent='未確認儲存成功：'+err.message+'。可保留草稿後重試。'}).submitProposal(payload)}else{const post=document.createElement('form');post.method='POST';post.action=WEB_APP_URL;post.target='_blank';const input=document.createElement('input');input.type='hidden';input.name='payload';input.value=JSON.stringify(payload);post.append(input);document.body.append(post);post.submit();post.remove();$('submit').disabled=false;$('status').textContent='已開啟收件回執視窗。請以該視窗的「儲存成功」與回執編號確認；此頁尚未確認成功。'}};
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>品質管理企劃教室｜逐表填寫</title><style>
+:root{font-family:system-ui,"Noto Sans TC",sans-serif;color:#183e3c;background:#f3f5ef}*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0}header{background:#183e3c;color:white;padding:28px max(4vw,20px)}h1{font-size:clamp(26px,4vw,38px);margin:8px 0}header p{line-height:1.7;max-width:850px}header small{color:#c8dcbf}.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;max-width:1450px;margin:24px auto;padding:0 20px}nav{align-self:start;position:sticky;top:15px;max-height:85vh;overflow:auto}nav button{display:block;text-align:left;width:100%;background:transparent;color:#23473f;border-left:3px solid #bacab5;border-radius:0;font-size:14px;margin:0 0 4px;padding:9px}nav button[aria-current=step]{background:#dfeadc;border-color:#245c53;font-weight:750}.panel{background:white;border:1px solid #d9e3d6;border-radius:6px;padding:24px;margin-bottom:20px}main{min-width:0}h2{font-size:24px;margin:0 0 14px}.note{background:#eaf0e6;padding:14px;line-height:1.8}.identity{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}label{display:block;font-weight:650;margin:14px 0 7px}input,textarea,select{font:inherit;color:inherit;width:100%;background:white;border:1px solid #91a79d;border-radius:4px;padding:10px}textarea{min-height:100px;resize:vertical;line-height:1.7}input:focus,textarea:focus,button:focus-visible,select:focus{outline:3px solid #c0a151;outline-offset:2px}button,.button{display:inline-block;font:inherit;background:#245c53;color:white;border:0;border-radius:4px;padding:10px 15px;cursor:pointer;margin:5px 4px 5px 0;text-decoration:none}button.secondary,.button.secondary{background:#e7ede2;color:#23473f}button:disabled{opacity:.45;cursor:wait}.tablewrap{overflow-x:auto;border:1px solid #d8e3d2;margin-top:18px}table{border-collapse:collapse;width:100%}th{background:#e8eee3;text-align:left;padding:12px;vertical-align:top}td{vertical-align:top;padding:10px;border-top:1px solid #d8e3d2;min-width:175px}td:first-child{min-width:50px}td label{font-size:13px;font-weight:400;margin:0 0 8px}td textarea{min-height:105px}fieldset{border:0;margin:0;padding:0}fieldset label{font-weight:400;display:flex;gap:8px;align-items:start;margin:9px 0}fieldset input{width:auto;margin-top:4px}.actions{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:20px}.meta{font-size:13px;color:#4c6558;line-height:1.8}.message{white-space:pre-wrap;line-height:1.8}.error{color:#8a3324}.hint{font-size:13px;color:#536752;line-height:1.7}.statusline{border-top:1px solid #d6e2d0;padding-top:12px;margin-top:12px}#progress{font-weight:650}.consent{display:flex;gap:10px;align-items:start}.consent input{width:auto;margin-top:6px}.badge{font-size:12px;background:#e8ede2;padding:4px 8px}.cloudFrame{width:100%;height:95vh;border:0}#report{display:none}footer{text-align:center;padding:22px;font-size:13px}@media(max-width:760px){.layout{display:block;padding:0 12px}nav{position:static;display:flex;max-height:none;margin-bottom:15px;gap:6px}nav button{width:auto;white-space:nowrap}.identity{grid-template-columns:1fr}.panel{padding:18px}.actions button{flex-grow:1}}@media print{header,#app,footer{display:none}#report{display:block;color:black}#report section{break-inside:avoid;margin:20px 0}#report p{white-space:pre-wrap}#report table{font-size:10px}#report td{min-width:0;white-space:pre-wrap}#report th{background:#eee}}
+</style></head><body><header><small>大四企劃案 · 每位學生個別操作</small><h1>品質管理企劃教室</h1><p>逐段完成需求分析，逐列建立職能與課程，再設計評量、試辦與改善。每個段落與表格都能獨立存檔，分次完成。</p></header><div id="app"><div class="layout"><nav id="nav" aria-label="填寫步驟"></nav><main><div class="panel"><div class="identity"><div><label for="studentName">學生姓名</label><input id="studentName" maxlength="60" autocomplete="name"></div><div><label for="studentId">學號</label><input id="studentId" maxlength="60" inputmode="text"></div><div><label for="grade">年級</label><select id="grade"><option>四年級</option><option>三年級</option><option>二年級</option><option>一年級</option><option>其他年級</option></select></div><div><label for="className">班級</label><input id="className" maxlength="100"></div><div><label for="track">企劃主題</label><select id="track"><option>醫院品質管理企劃課</option><option>長照機構品質管理企劃課</option></select></div><div><label for="classCode">教師課程代碼（雲端存檔用）</label><input id="classCode" autocomplete="off"></div></div><p class="note" id="connection"></p><p class="hint">教學演練版，對應您提供的 iCAP 格式；不代表正式申請或認證。請填模擬資料，勿填病人／住民個資。共用電腦使用後請清除草稿。備份含個人作業續填密鑰，請自行保管。</p><div class="actions"><a class="button secondary" href="https://chatgptcjcu-boop.github.io/healthcare-quality-course-planner/case.html" target="_blank">閱讀完整長照案例</a><button id="caseLoad" class="secondary">載入長照完整教學案例</button><button id="backup" class="secondary">下載整份備份</button><label class="button secondary">匯入備份<input id="import" type="file" accept="application/json" hidden></label><button id="loadCloud" class="secondary">讀回我的雲端存檔</button><button id="print" class="secondary">列印整份報告</button><button id="reset" class="secondary">開始新企劃</button></div><p id="progress" aria-live="polite"></p><p id="globalStatus" class="message" role="status"></p></div><div id="sections"></div><div class="panel"><h2>整份作業檢核與提交</h2><label class="consent"><input id="consent" type="checkbox">我確認此資料用於課堂評量，並已標註模擬／預計／實際資料。</label><button id="review" class="secondary">檢查整份作業</button><button id="submit">完成並提交整份企劃</button><p id="reviewResult" class="message" role="status"></p></div></main></div></div><article id="report"></article><footer>需求 → 職能 → 訓練 → 證據 → 改善 · 存檔帳號：chatgpt.cjcu@gmail.com</footer><script>
+const SCHEMA=[{"id": "cover", "title": "封面與課程基本資料", "fields": [{"key": "courseZh", "label": "課程名稱（中文）", "type": "text", "hint": "", "optional": false}, {"key": "courseEn", "label": "課程名稱（英文）", "type": "text", "hint": "", "optional": true}, {"key": "basisType", "label": "職能依據類型", "type": "select", "hint": "", "optional": false, "options": ["自行職能分析", "職能基準", "職能單元"]}, {"key": "basisSource", "label": "職能依據來源與查核", "type": "textarea", "hint": "來源名稱、版本、連結；自行分析請填訪談／工作分析方法", "optional": false}, {"key": "applicationType", "label": "規劃類型", "type": "select", "hint": "", "optional": false, "options": ["教學新規劃", "新申請（模擬）", "展延（模擬）", "變更（模擬）"]}, {"key": "extensionCategory", "label": "展延類別（適用時）", "type": "select", "hint": "", "optional": true, "options": ["不適用", "類別1：與原課程一致", "類別2：課程部分調整", "類別3：職能依據及課程皆部分調整"]}, {"key": "changes", "label": "變更項目（適用時）", "type": "textarea", "hint": "", "optional": true}, {"key": "unitZh", "label": "申請／規劃單位（中文）", "type": "text", "hint": "", "optional": false}, {"key": "unitEn", "label": "申請／規劃單位（英文）", "type": "text", "hint": "", "optional": true}, {"key": "partner", "label": "協力單位（無則填無）", "type": "text", "hint": "", "optional": false}, {"key": "start", "label": "辦訓期間起", "type": "date", "hint": "", "optional": false}, {"key": "end", "label": "辦訓期間訖", "type": "date", "hint": "", "optional": false}], "guide": "填寫學生規劃的新人培訓課程。申請日期與案號依原格式免填；教學用途不會送入 iCAP 官方申請系統。", "repeat": false}, {"id": "need", "title": "壹｜訓練需求", "fields": [{"key": "text", "label": "訓練需求", "type": "textarea", "hint": "現況 → 新人能力落差 → 調查方法 → 資料來源；限1000字", "optional": false}], "guide": "說明為什麼需要這門課。假設、模擬訪談與真實資料須分開標註。", "repeat": false}, {"id": "intro", "title": "壹｜課程簡介", "fields": [{"key": "text", "label": "課程簡介", "type": "textarea", "hint": "場域、對象、核心內容、教學方法；限1000字", "optional": false}], "guide": "用一段話讓讀者了解培訓課程內容與特色。", "repeat": false}, {"id": "purpose", "title": "壹｜課程目的", "fields": [{"key": "text", "label": "課程目的", "type": "textarea", "hint": "新人在什麼條件下能做什麼，達到什麼標準；限1000字", "optional": false}], "guide": "目的需對應工作表現，不只寫「提升認知」。", "repeat": false}, {"id": "info", "title": "壹｜課程時數、級別與對象", "fields": [{"key": "hours", "label": "課程總時數", "type": "number", "hint": "", "optional": false}, {"key": "level", "label": "課程職能級別", "type": "text", "hint": "", "optional": false}, {"key": "levelReason", "label": "級別判斷理由／依據", "type": "textarea", "hint": "沒有可查證級別時填「待分析」", "optional": false}, {"key": "audience", "label": "主要對象／參訓資格", "type": "textarea", "hint": "", "optional": false}, {"key": "prerequisite", "label": "先備條件／資格條件", "type": "textarea", "hint": "", "optional": false}], "guide": "區分「本課的大四學生」與「企劃設計的入職新人」。時數需與表4加總一致。", "repeat": false}, {"id": "t1", "title": "表1｜本課程之職能表", "fields": [{"key": "taskId", "label": "任務代碼", "type": "text", "hint": "", "optional": false}, {"key": "taskZh", "label": "工作任務（中文）", "type": "textarea", "hint": "", "optional": false}, {"key": "taskEn", "label": "工作任務（英文）", "type": "text", "hint": "", "optional": true}, {"key": "p", "label": "對應行為指標 P", "type": "textarea", "hint": "", "optional": false}, {"key": "level", "label": "職能級別 L", "type": "text", "hint": "", "optional": false}, {"key": "k", "label": "對應知識 K", "type": "textarea", "hint": "", "optional": false}, {"key": "s", "label": "對應技能 S", "type": "textarea", "hint": "", "optional": false}], "guide": "一列是一項工作任務。P 使用可觀察的工作行為，K 是需要知道的內容，S 是實際操作能力。英文僅有英文證書需求時必填。", "repeat": true}, {"id": "t2", "title": "表2｜課程地圖", "fields": [{"key": "order", "label": "學習順序", "type": "number", "hint": "", "optional": false}, {"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "課程單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "prerequisite", "label": "先修單元／條件", "type": "text", "hint": "", "optional": false}, {"key": "taskId", "label": "對應表1任務代碼", "type": "text", "hint": "", "optional": false}, {"key": "assessment", "label": "完成後的評量／工作應用", "type": "text", "hint": "", "optional": false}], "guide": "原表2留白供課程地圖使用；本系統以可排序的單元列呈現先修、任務與學習路徑。", "repeat": true}, {"id": "t3", "title": "表3｜教學訓練目標與職能內涵", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unitZh", "label": "單元名稱（中文）", "type": "text", "hint": "", "optional": false}, {"key": "unitEn", "label": "單元名稱（英文）", "type": "text", "hint": "", "optional": true}, {"key": "level", "label": "單元職能級別", "type": "text", "hint": "", "optional": false}, {"key": "objective", "label": "教學／訓練目標", "type": "textarea", "hint": "", "optional": false}, {"key": "p", "label": "對應行為指標", "type": "textarea", "hint": "", "optional": false}, {"key": "k", "label": "對應知識 K", "type": "textarea", "hint": "", "optional": false}, {"key": "s", "label": "對應技能 S", "type": "textarea", "hint": "", "optional": false}], "guide": "逐單元寫出條件、行為、達成標準，並對應表1的P/K/S。", "repeat": true}, {"id": "t4", "title": "表4｜課程內容", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "hours", "label": "單元時數", "type": "number", "hint": "", "optional": false}, {"key": "outline", "label": "課程大綱內容", "type": "textarea", "hint": "", "optional": false}], "guide": "新增各單元並填時數；系統自動加總，完整提交時檢查與總時數一致。", "repeat": true}, {"id": "t5", "title": "表5｜教學方法", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "objective", "label": "教學／訓練目標", "type": "textarea", "hint": "", "optional": false}, {"key": "methods", "label": "教學方法（可複選）", "type": "multi", "hint": "", "optional": false, "options": ["講述教學", "討論教學", "演練教學", "協同教學", "專題教學", "示範教學", "案例教學", "其他"]}, {"key": "other", "label": "其他方法說明", "type": "textarea", "hint": "", "optional": true}, {"key": "reason", "label": "方法選用理由", "type": "textarea", "hint": "", "optional": false}], "guide": "依目標選擇方法，不只是全部勾選。勾選其他需補充說明。", "repeat": true}, {"id": "t6", "title": "表6｜教材與教學資源", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "materials", "label": "教材", "type": "textarea", "hint": "", "optional": false}, {"key": "equipment", "label": "教具／設備（可複選）", "type": "multi", "hint": "", "optional": false, "options": ["電腦設備", "投影設備", "麥克風", "黑／白板", "視訊軟體及鏡頭", "喇叭", "其他"]}, {"key": "other", "label": "其他設備說明", "type": "textarea", "hint": "", "optional": true}, {"key": "source", "label": "教材來源／授權／版本", "type": "textarea", "hint": "", "optional": false}], "guide": "填寫可實際取得的教材與設備；不使用真實病人或住民資料。", "repeat": true}, {"id": "t7", "title": "表7｜師資條件", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "teacher", "label": "授課教師資格條件", "type": "textarea", "hint": "", "optional": false}, {"key": "assessor", "label": "評量人員資格條件", "type": "textarea", "hint": "", "optional": false}, {"key": "assistant", "label": "課程協助人員資格條件", "type": "textarea", "hint": "", "optional": false}], "guide": "此表填「應具備的條件」；表9才填實際執行人員。", "repeat": true}, {"id": "t8", "title": "表8｜學習成果評量方式", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "methods", "label": "評量方式（可複選）", "type": "multi", "hint": "", "optional": false, "options": ["測驗", "作業評量", "實作評量", "口頭報告", "無", "其他"]}, {"key": "otherMethod", "label": "其他評量方式說明", "type": "textarea", "hint": "", "optional": true}, {"key": "tools", "label": "評量工具（可複選）", "type": "multi", "hint": "", "optional": false, "options": ["測驗卷", "評量題目", "意見回饋表", "檢核表", "無", "其他"]}, {"key": "otherTool", "label": "其他工具說明", "type": "textarea", "hint": "", "optional": true}, {"key": "p", "label": "對應行為指標", "type": "textarea", "hint": "", "optional": false}, {"key": "rubric", "label": "評分規準／達標門檻", "type": "textarea", "hint": "", "optional": false}], "guide": "評量需證明工作能力；滿意度調查不能替代能力評量。", "repeat": true}, {"id": "t9", "title": "表9｜實際執行人員資格", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "state", "label": "人員資料狀態", "type": "select", "hint": "", "optional": false, "options": ["預計／尚未執行", "已實際執行"]}, {"key": "teacherName", "label": "授課教師姓名（未定填待聘）", "type": "text", "hint": "", "optional": false}, {"key": "teacherQualification", "label": "授課教師資格", "type": "textarea", "hint": "", "optional": false}, {"key": "assessorName", "label": "評量人員姓名（未定填待聘）", "type": "text", "hint": "", "optional": false}, {"key": "assessorQualification", "label": "評量人員資格", "type": "textarea", "hint": "", "optional": false}, {"key": "assistantName", "label": "協助人員姓名（未定填待聘）", "type": "text", "hint": "", "optional": false}, {"key": "assistantQualification", "label": "協助人員資格", "type": "textarea", "hint": "", "optional": false}], "guide": "尚未試辦請填待聘及預計資格；真實姓名須取得同意，勿填個人證號。", "repeat": true}, {"id": "t10", "title": "表10｜試辦班執行成果", "fields": [{"key": "state", "label": "成果資料狀態", "type": "select", "hint": "", "optional": false, "options": ["預計／尚未試辦", "實際試辦成果"]}, {"key": "start", "label": "試辦辦訓期間起", "type": "date", "hint": "", "optional": false}, {"key": "end", "label": "試辦辦訓期間訖", "type": "date", "hint": "", "optional": false}, {"key": "participants", "label": "參訓人數", "type": "integer", "hint": "", "optional": false}, {"key": "finished", "label": "完訓人數", "type": "integer", "hint": "", "optional": false}, {"key": "qualified", "label": "達教學結訓標準人數", "type": "integer", "hint": "", "optional": false}, {"key": "note", "label": "資料來源／預計與實際說明", "type": "textarea", "hint": "", "optional": false}], "guide": "規劃階段可填預計人數但必須標明。實際成果的人數需滿足：結訓 ≤ 完訓 ≤ 參訓。這不是 iCAP 認證人數。", "repeat": false}, {"id": "t11", "title": "表11｜學習成果證據", "fields": [{"key": "unitId", "label": "單元代碼", "type": "text", "hint": "", "optional": false}, {"key": "unit", "label": "單元名稱", "type": "text", "hint": "", "optional": false}, {"key": "state", "label": "證據狀態", "type": "select", "hint": "", "optional": false, "options": ["預計提供", "已有實際證據"]}, {"key": "item", "label": "學習成果證據項目", "type": "textarea", "hint": "", "optional": false}, {"key": "link", "label": "證據資料連結（選填）", "type": "url", "hint": "", "optional": true}, {"key": "note", "label": "對應行為指標／蒐集方式", "type": "textarea", "hint": "", "optional": false}], "guide": "列出作品、操作紀錄與評量證據；連結請依需要限制閱覽權限。", "repeat": true}, {"id": "t12", "title": "表12｜課程結訓標準", "fields": [{"key": "category", "label": "評量類別", "type": "select", "hint": "", "optional": false, "options": ["各階段評量", "學科", "術科", "其他"]}, {"key": "enabled", "label": "是否採用", "type": "select", "hint": "", "optional": false, "options": ["採用", "不採用"]}, {"key": "criterion", "label": "結訓判定", "type": "select", "hint": "", "optional": false, "options": ["通過", "其他", "不適用"]}, {"key": "standard", "label": "通過標準／其他說明", "type": "textarea", "hint": "", "optional": true}], "guide": "至少採用一項，採用的項目需寫明可查核的通過標準。", "repeat": true, "initial": [{"category": "各階段評量", "enabled": "不採用", "criterion": "不適用", "standard": ""}, {"category": "學科", "enabled": "不採用", "criterion": "不適用", "standard": ""}, {"category": "術科", "enabled": "不採用", "criterion": "不適用", "standard": ""}, {"category": "其他", "enabled": "不採用", "criterion": "不適用", "standard": ""}]}, {"id": "addie", "title": "參｜課程發展相關佐證資料", "fields": [{"key": "stage", "label": "階段", "type": "select", "hint": "", "optional": false, "options": ["A 分析", "D 設計", "D 發展", "I 執行", "E 評估"]}, {"key": "indicator", "label": "指標", "type": "text", "hint": "", "optional": false}, {"key": "participation", "label": "利益關係人參與紀錄", "type": "textarea", "hint": "", "optional": false}, {"key": "evidence", "label": "佐證資料項目", "type": "textarea", "hint": "", "optional": false}, {"key": "state", "label": "佐證狀態", "type": "select", "hint": "", "optional": false, "options": ["預計製作", "已有資料"]}, {"key": "link", "label": "佐證連結（選填）", "type": "url", "hint": "", "optional": true}], "guide": "依原表逐項記錄10個指標、參與紀錄與佐證；預計與已完成請分清楚。", "repeat": true, "initial": [{"stage": "A 分析", "indicator": "1.1 職能依據", "participation": "", "evidence": "職能分析文件", "state": "預計製作", "link": ""}, {"stage": "A 分析", "indicator": "1.2 課程地圖", "participation": "", "evidence": "課程地圖", "state": "預計製作", "link": ""}, {"stage": "D 設計", "indicator": "2.1 教學／訓練目標", "participation": "", "evidence": "訓練目標文件", "state": "預計製作", "link": ""}, {"stage": "D 設計", "indicator": "2.2 課程內容", "participation": "", "evidence": "課程內容", "state": "預計製作", "link": ""}, {"stage": "D 發展", "indicator": "3.1 教學方法", "participation": "", "evidence": "教學方法設計", "state": "預計製作", "link": ""}, {"stage": "D 發展", "indicator": "3.2 教材與教學資源", "participation": "", "evidence": "課程教材、執行人員資格文件", "state": "預計製作", "link": ""}, {"stage": "I 執行", "indicator": "4.1 課程辦理", "participation": "", "evidence": "招生簡章、滿意度調查、課程實施紀錄", "state": "預計製作", "link": ""}, {"stage": "E 評估", "indicator": "5.1 學習成果評量", "participation": "", "evidence": "學員名單及成績總表、評量工具及評分標準", "state": "預計製作", "link": ""}, {"stage": "E 評估", "indicator": "5.2 學習成果證據", "participation": "", "evidence": "學習成果證據", "state": "預計製作", "link": ""}, {"stage": "E 評估", "indicator": "5.3 管控評估", "participation": "", "evidence": "管控機制佐證文件", "state": "預計製作", "link": ""}]}, {"id": "stakeholders", "title": "利益關係人參與紀錄", "fields": [{"key": "date", "label": "日期", "type": "date", "hint": "", "optional": false}, {"key": "role", "label": "參與者角色", "type": "text", "hint": "", "optional": false}, {"key": "state", "label": "紀錄性質", "type": "select", "hint": "", "optional": false, "options": ["預計訪談", "模擬訪談", "真實訪談"]}, {"key": "opinion", "label": "意見／需求", "type": "textarea", "hint": "", "optional": false}, {"key": "response", "label": "課程修訂或回應", "type": "textarea", "hint": "", "optional": false}, {"key": "link", "label": "整合紀錄連結（選填）", "type": "url", "hint": "", "optional": true}], "guide": "依參與次數逐列填寫；真實或模擬須標示，原格式要求正式申請時整合為一份檔案。", "repeat": true}, {"id": "pdca", "title": "品質改善企劃｜PDCA", "fields": [{"key": "problem", "label": "問題與現況", "type": "textarea", "hint": "", "optional": false}, {"key": "baseline", "label": "基準值／資料狀態", "type": "textarea", "hint": "", "optional": false}, {"key": "goal", "label": "改善目標", "type": "textarea", "hint": "", "optional": false}, {"key": "causes", "label": "原因分析", "type": "textarea", "hint": "", "optional": false}, {"key": "plan", "label": "P：規劃措施", "type": "textarea", "hint": "", "optional": false}, {"key": "do", "label": "D：執行內容", "type": "textarea", "hint": "", "optional": false}, {"key": "check", "label": "C：成效檢查", "type": "textarea", "hint": "", "optional": false}, {"key": "act", "label": "A：標準化與修正", "type": "textarea", "hint": "", "optional": false}, {"key": "indicator", "label": "品質指標定義（分子／分母／資料來源）", "type": "textarea", "hint": "", "optional": false}, {"key": "owner", "label": "負責角色", "type": "text", "hint": "", "optional": false}, {"key": "deadline", "label": "預計檢討日期", "type": "date", "hint": "", "optional": false}], "guide": "把新人訓練放進品質改善措施，說明如何追蹤成效；假設數值需明確標註。", "repeat": false}, {"id": "references", "title": "參考資料與 AI 使用揭露", "fields": [{"key": "sources", "label": "資料來源、版本與查閱日期", "type": "textarea", "hint": "", "optional": false}, {"key": "ai", "label": "AI 使用部分與人工查核方式（未使用填未使用）", "type": "textarea", "hint": "", "optional": false}], "guide": "核對來源真實性，不能用 AI 生成的訪談或文獻冒充證據。", "repeat": false}];
+const WEB_APP_URL="";
+const EXAMPLES={"cover": {"courseZh": "〔場域〕入職新人品質指標與通報課程", "courseEn": "", "basisType": "自行職能分析", "basisSource": "自行職能分析教學草案：預計訪談品質主管、觀察行政工作流程；尚無真實訪談。", "applicationType": "教學新規劃", "extensionCategory": "不適用", "changes": "", "unitZh": "模擬教學機構", "unitEn": "", "partner": "無", "start": "2026-11-02", "end": "2026-11-03"}, "need": {"text": "【模擬情境】新人對品質指標分子分母與通報流程不熟悉。規劃以主管訪談、問卷與模擬資料測驗分析能力落差；目前尚無真實調查結果。"}, "intro": {"text": "以模擬資料與通報案例，學習指標計算、紀錄、溝通與改善提案。"}, "purpose": {"text": "給定模擬資料與流程，新人能正確計算指標、完成通報紀錄，並提出可追蹤的改善方案。"}, "info": {"hours": "12", "level": "待分析", "levelReason": "預計依工作任務分析確認，不宣稱官方級別。", "audience": "到職三個月內品質管理行政新人。", "prerequisite": "基本文書、試算表能力與入職訓練。"}, "t1": [{"taskId": "T1", "taskZh": "整理品質指標資料並完成通報紀錄", "taskEn": "", "p": "P1 正確辨識分子分母，核對數據，完整填寫全部通報關鍵欄位。", "level": "待分析", "k": "K1 指標定義、資料品質與通報流程。", "s": "S1 試算表計算、紀錄與溝通。"}], "t2": [{"order": "1", "unitId": "U1", "unit": "品質指標與通報演練", "prerequisite": "基本文書與入職訓練", "taskId": "T1", "assessment": "指標計算作業與通報檢核表"}], "t3": [{"unitId": "U1", "unitZh": "品質指標與通報演練", "unitEn": "", "level": "待分析", "objective": "給定模擬資料，指標計算正確率至少80%，通報關鍵欄位全數完成。", "p": "P1 正確計算並完整通報", "k": "K1 指標定義與通報流程", "s": "S1 試算表、紀錄與溝通"}], "t4": [{"unitId": "U1", "unit": "品質指標與通報演練", "hours": "12", "outline": "品質概念3小時；指標計算3小時；通報演練3小時；PDCA提案3小時。"}], "t5": [{"unitId": "U1", "unit": "品質指標與通報演練", "objective": "對應P1，正確計算並完整通報", "methods": ["示範教學", "演練教學", "案例教學"], "other": "", "reason": "先示範後演練，再以情境檢核能力。"}], "t6": [{"unitId": "U1", "unit": "品質指標與通報演練", "materials": "自製模擬資料表、示意流程圖、案例卡", "equipment": ["電腦設備", "投影設備"], "other": "", "source": "預計自行製作；全部為模擬資料。"}], "t7": [{"unitId": "U1", "unit": "品質指標與通報演練", "teacher": "具場域品質管理與教學經驗", "assessor": "具實作評量與品質管理能力", "assistant": "具試算表與教學紀錄能力"}], "t8": [{"unitId": "U1", "unit": "品質指標與通報演練", "methods": ["實作評量", "口頭報告"], "otherMethod": "", "tools": ["檢核表", "評量題目"], "otherTool": "", "p": "P1", "rubric": "計算正確率80%以上；通報所有關鍵項目通過。"}], "t9": [{"unitId": "U1", "unit": "品質指標與通報演練", "state": "預計／尚未執行", "teacherName": "待聘", "teacherQualification": "預計具品質管理經驗", "assessorName": "待聘", "assessorQualification": "預計具實作評量能力", "assistantName": "待聘", "assistantQualification": "預計具試算表與教學紀錄能力"}], "t10": {"state": "預計／尚未試辦", "start": "2026-11-02", "end": "2026-11-03", "participants": "10", "finished": "0", "qualified": "0", "note": "【預計】招募10人；尚未試辦，完訓及結訓均無實際結果，暫填0。"}, "t11": [{"unitId": "U1", "unit": "品質指標與通報演練", "state": "預計提供", "item": "預計蒐集指標計算作業、通報檢核表、改善提案", "link": "", "note": "對應P1；試辦後由評量者依工具蒐集。"}], "t12": [{"category": "各階段評量", "enabled": "採用", "criterion": "通過", "standard": "各階段作業80%以上，且通報關鍵項目全部通過。"}, {"category": "學科", "enabled": "不採用", "criterion": "不適用", "standard": ""}, {"category": "術科", "enabled": "不採用", "criterion": "不適用", "standard": ""}, {"category": "其他", "enabled": "不採用", "criterion": "不適用", "standard": ""}], "addie": [{"stage": "A 分析", "indicator": "1.1 職能依據", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "職能分析文件", "state": "預計製作", "link": ""}, {"stage": "A 分析", "indicator": "1.2 課程地圖", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "課程地圖", "state": "預計製作", "link": ""}, {"stage": "D 設計", "indicator": "2.1 教學／訓練目標", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "訓練目標文件", "state": "預計製作", "link": ""}, {"stage": "D 設計", "indicator": "2.2 課程內容", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "課程內容", "state": "預計製作", "link": ""}, {"stage": "D 發展", "indicator": "3.1 教學方法", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "教學方法設計", "state": "預計製作", "link": ""}, {"stage": "D 發展", "indicator": "3.2 教材與教學資源", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "課程教材、執行人員資格文件", "state": "預計製作", "link": ""}, {"stage": "I 執行", "indicator": "4.1 課程辦理", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "招生簡章、滿意度調查、課程實施紀錄", "state": "預計製作", "link": ""}, {"stage": "E 評估", "indicator": "5.1 學習成果評量", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "學員名單及成績總表、評量工具及評分標準", "state": "預計製作", "link": ""}, {"stage": "E 評估", "indicator": "5.2 學習成果證據", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "學習成果證據", "state": "預計製作", "link": ""}, {"stage": "E 評估", "indicator": "5.3 管控評估", "participation": "預計邀品質主管、資深人員、新人與教師共同檢視。", "evidence": "管控機制佐證文件", "state": "預計製作", "link": ""}], "stakeholders": [{"date": "2026-11-02", "role": "品質主管（模擬）", "state": "預計訪談", "opinion": "預計釐清新人的工作落差與通報難點。", "response": "依訪談結果調整課程與評量；尚未取得真實意見。", "link": ""}], "pdca": {"problem": "【模擬】新人通報欄位遺漏", "baseline": "假設通報完整率60%；非真實統計", "goal": "假設目標90%；非臨床標準", "causes": "預計分析流程、提示與訓練不足", "plan": "規劃新人培訓與提示卡", "do": "預計依12小時課程試辦", "check": "每週抽核模擬通報資料", "act": "依檢核修訂教材與流程", "indicator": "完整率=關鍵欄位完整件數／全部模擬通報件數；來源為教學案例", "owner": "品質管理教師與模擬主管", "deadline": "2026-11-02"}, "references": {"sources": "來源待補：職務訪談、SOP版本、教材來源與查閱日期。不可把模擬資料當真實佐證。", "ai": "此教學範例由AI協助草擬；學生應查核並記錄採用部分。"}};
+const TEACHING_CASE={
+  "schemaVersion": 2,
+  "caseTitle": "青禾長照之家新進品質行政人員：異常事件通報與品質改善課程",
+  "track": "長照機構品質管理企劃課",
+  "dataStatus": "完整虛構教學案例；尚未試辦",
+  "sections": {
+    "cover": {
+      "courseZh": "青禾長照之家新進品質行政人員：異常事件通報與品質改善課程",
+      "courseEn": "Incident Reporting and Quality Improvement for New Quality Administrators",
+      "basisType": "自行職能分析",
+      "basisSource": "採自行職能分析（教學草案）。依下列虛構工作描述建立：新人接收事件摘要、檢核通報欄位、整理指標、協助改善會議。訪談角色與資料均為教學設定；正式規劃時須另蒐集真實同意訪談及機構SOP。",
+      "applicationType": "教學新規劃",
+      "extensionCategory": "不適用",
+      "changes": "",
+      "unitZh": "青禾長照之家（虛構）",
+      "unitEn": "Qinghe Long-Term Care Home (Fictional)",
+      "partner": "教學教師與模擬品質主管",
+      "start": "2026-11-02",
+      "end": "2026-11-03"
+    },
+    "need": {
+      "text": "【完整虛構案例】青禾長照之家有60個床位，每季約有4位新進行政人員。教師提供50份合成異常事件紀錄，其中30份關鍵欄位完整，20份缺少發現時間、處理摘要或後續追蹤，完整率為60%。這些不是實際住民事件。以3種模擬角色觀點分析：品質主管希望資料可追蹤；資深行政人員指出定義與範例不清；新人希望先看示範再演練。能力落差包括客觀紀錄、欄位檢核、指標計算與改善企劃。訓練並不能單獨解決表單設計或流程問題，因此搭配欄位提示卡與主管抽核。正式實施前須以真實需求調查查證。"
+    },
+    "intro": {
+      "text": "規劃12小時、4個單元的入職新人職能導向課程。新人依合成紀錄與機構示意流程，練習客觀通報、資料檢核、品質指標與PDCA提案。以案例、示範、角色演練與作業評量驗證能力。培訓對象為行政與品質助理，不教授診斷或照護處置；事件處理由合格場域人員依機構流程負責。"
+    },
+    "purpose": {
+      "text": "1.給定合成事件摘要與欄位檢核表，新人能客觀紀錄並完成所有關鍵欄位。2.給定50筆合成通報資料，正確定義分子分母並算出完整率，計算評量至少80分。3.針對欄位缺漏，提出含措施、責任、時程與追蹤指標的PDCA提案，量規至少80分。4.辨識模擬資料與個資界線，不在作業中加入真實住民資料。"
+    },
+    "info": {
+      "hours": "12",
+      "level": "待分析",
+      "levelReason": "預計依工作任務分析確認，不宣稱官方級別。",
+      "audience": "到職3個月內的長照機構品質助理或行政新人；非專業臨床處置課程。",
+      "prerequisite": "完成基本入職介紹，能使用文書與試算表；尚未具備品質指標計算經驗。"
+    },
+    "t1": [
+      {
+        "taskId": "T1",
+        "taskZh": "事件摘要與客觀紀錄",
+        "taskEn": "",
+        "p": "P1：依示意流程區分事實與推測，完成事件摘要；P2：不加入識別個資。",
+        "level": "待分析（自行職能分析草案）",
+        "k": "K1：示意通報流程；K2：客觀紀錄與個資原則。",
+        "s": "S1：閱讀、摘要及紀錄。"
+      },
+      {
+        "taskId": "T2",
+        "taskZh": "通報欄位檢核與溝通",
+        "taskEn": "",
+        "p": "P3：檢核發現時間、客觀描述、處理摘要與追蹤四項關鍵欄位；缺漏件全部標記。",
+        "level": "待分析（自行職能分析草案）",
+        "k": "K3：欄位定義及角色分工。",
+        "s": "S2：欄位核對與回報溝通。"
+      },
+      {
+        "taskId": "T3",
+        "taskZh": "資料整理與品質指標計算",
+        "taskEn": "",
+        "p": "P4：正確選取分子分母，算出30/50=60%，計算評量至少80分。",
+        "level": "待分析（自行職能分析草案）",
+        "k": "K4：指標定義、分子分母及資料品質。",
+        "s": "S3：試算表整理與計算。"
+      },
+      {
+        "taskId": "T4",
+        "taskZh": "原因分析與PDCA改善提案",
+        "taskEn": "",
+        "p": "P5：提出含問題、原因、措施、角色、時程及指標的改善提案，量規至少80分。",
+        "level": "待分析（自行職能分析草案）",
+        "k": "K5：PDCA、原因分析與成效追蹤。",
+        "s": "S4：原因圖、改善企劃與口頭表達。"
+      }
+    ],
+    "t2": [
+      {
+        "order": "1",
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "prerequisite": "基本文書與入職介紹",
+        "taskId": "T1",
+        "assessment": "以合成摘要辨識事實／推測並撰寫紀錄，檢核至少80分。"
+      },
+      {
+        "order": "2",
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "prerequisite": "完成U1",
+        "taskId": "T2",
+        "assessment": "給定5張合成通報卡，全部辨識關鍵欄位缺漏並完成回報演練。"
+      },
+      {
+        "order": "3",
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "prerequisite": "完成U2",
+        "taskId": "T3",
+        "assessment": "給定50筆合成資料，定義分子分母並計算完整率，評量至少80分。"
+      },
+      {
+        "order": "4",
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "prerequisite": "完成U3",
+        "taskId": "T4",
+        "assessment": "完成含責任、時程與指標的PDCA提案，量規至少80分。"
+      }
+    ],
+    "t3": [
+      {
+        "unitId": "U1",
+        "unitZh": "事件紀錄與通報流程",
+        "unitEn": "",
+        "level": "待分析",
+        "objective": "以合成摘要辨識事實／推測並撰寫紀錄，檢核至少80分。",
+        "p": "P1：依示意流程區分事實與推測，完成事件摘要；P2：不加入識別個資。",
+        "k": "K1：示意通報流程；K2：客觀紀錄與個資原則。",
+        "s": "S1：閱讀、摘要及紀錄。"
+      },
+      {
+        "unitId": "U2",
+        "unitZh": "欄位檢核與情境溝通",
+        "unitEn": "",
+        "level": "待分析",
+        "objective": "給定5張合成通報卡，全部辨識關鍵欄位缺漏並完成回報演練。",
+        "p": "P3：檢核發現時間、客觀描述、處理摘要與追蹤四項關鍵欄位；缺漏件全部標記。",
+        "k": "K3：欄位定義及角色分工。",
+        "s": "S2：欄位核對與回報溝通。"
+      },
+      {
+        "unitId": "U3",
+        "unitZh": "品質指標與試算表",
+        "unitEn": "",
+        "level": "待分析",
+        "objective": "給定50筆合成資料，定義分子分母並計算完整率，評量至少80分。",
+        "p": "P4：正確選取分子分母，算出30/50=60%，計算評量至少80分。",
+        "k": "K4：指標定義、分子分母及資料品質。",
+        "s": "S3：試算表整理與計算。"
+      },
+      {
+        "unitId": "U4",
+        "unitZh": "原因分析與PDCA提案",
+        "unitEn": "",
+        "level": "待分析",
+        "objective": "完成含責任、時程與指標的PDCA提案，量規至少80分。",
+        "p": "P5：提出含問題、原因、措施、角色、時程及指標的改善提案，量規至少80分。",
+        "k": "K5：PDCA、原因分析與成效追蹤。",
+        "s": "S4：原因圖、改善企劃與口頭表達。"
+      }
+    ],
+    "t4": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "hours": "3",
+        "outline": "通報目的、角色與示意流程1小時；客觀紀錄示範1小時；摘要與個資檢核演練1小時。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "hours": "3",
+        "outline": "四項關鍵欄位解說1小時；案例檢核1小時；角色回報與回饋1小時。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "hours": "3",
+        "outline": "資料整理1小時；指標定義與計算1小時；獨立實作及核對1小時。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "hours": "3",
+        "outline": "魚骨圖與原因假說1小時；PDCA工作表1小時；提案與回饋1小時。"
+      }
+    ],
+    "t5": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "objective": "以合成摘要辨識事實／推測並撰寫紀錄，檢核至少80分。",
+        "methods": [
+          "講述教學",
+          "案例教學"
+        ],
+        "other": "",
+        "reason": "以案例建立流程與客觀紀錄概念。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "objective": "給定5張合成通報卡，全部辨識關鍵欄位缺漏並完成回報演練。",
+        "methods": [
+          "演練教學",
+          "案例教學"
+        ],
+        "other": "",
+        "reason": "角色演練使新人實際核對與回報。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "objective": "給定50筆合成資料，定義分子分母並計算完整率，評量至少80分。",
+        "methods": [
+          "示範教學",
+          "案例教學"
+        ],
+        "other": "",
+        "reason": "先示範計算，再用新資料測獨立能力。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "objective": "完成含責任、時程與指標的PDCA提案，量規至少80分。",
+        "methods": [
+          "專題教學",
+          "案例教學"
+        ],
+        "other": "",
+        "reason": "專題產出可用的改善方案並接受回饋。"
+      }
+    ],
+    "t6": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "materials": "示意SOP、合成事件摘要、個資檢核卡",
+        "equipment": [
+          "電腦設備",
+          "投影設備",
+          "黑／白板"
+        ],
+        "other": "",
+        "source": "教師自製模擬教材；無真實住民資料。正式使用前由具長照場域經驗人員審閱。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "materials": "5張合成通報卡、四欄位檢核表、角色卡",
+        "equipment": [
+          "電腦設備",
+          "投影設備",
+          "黑／白板"
+        ],
+        "other": "",
+        "source": "教師自製模擬教材；無真實住民資料。正式使用前由具長照場域經驗人員審閱。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "materials": "50筆合成資料、試算表範本、答案核對表",
+        "equipment": [
+          "電腦設備",
+          "投影設備",
+          "黑／白板"
+        ],
+        "other": "",
+        "source": "教師自製模擬教材；無真實住民資料。正式使用前由具長照場域經驗人員審閱。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "materials": "魚骨圖工作紙、PDCA表、提案評分規準",
+        "equipment": [
+          "電腦設備",
+          "投影設備",
+          "黑／白板"
+        ],
+        "other": "",
+        "source": "教師自製模擬教材；無真實住民資料。正式使用前由具長照場域經驗人員審閱。"
+      }
+    ],
+    "t7": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "teacher": "具長照品質管理實務與教學能力；本案例尚未聘任。",
+        "assessor": "熟悉本單元行為指標與量規，能依作品評分。",
+        "assistant": "能協助設備、試算表與教學紀錄。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "teacher": "具長照品質管理實務與教學能力；本案例尚未聘任。",
+        "assessor": "熟悉本單元行為指標與量規，能依作品評分。",
+        "assistant": "能協助設備、試算表與教學紀錄。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "teacher": "具長照品質管理實務與教學能力；本案例尚未聘任。",
+        "assessor": "熟悉本單元行為指標與量規，能依作品評分。",
+        "assistant": "能協助設備、試算表與教學紀錄。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "teacher": "具長照品質管理實務與教學能力；本案例尚未聘任。",
+        "assessor": "熟悉本單元行為指標與量規，能依作品評分。",
+        "assistant": "能協助設備、試算表與教學紀錄。"
+      }
+    ],
+    "t8": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "methods": [
+          "作業評量",
+          "實作評量"
+        ],
+        "otherMethod": "",
+        "tools": [
+          "檢核表",
+          "評量題目"
+        ],
+        "otherTool": "",
+        "p": "P1：依示意流程區分事實與推測，完成事件摘要；P2：不加入識別個資。",
+        "rubric": "紀錄評量100分：事實／推測辨識30、摘要完整30、角色流程20、個資界線20；至少80分，個資關鍵項不得缺漏。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "methods": [
+          "作業評量",
+          "實作評量"
+        ],
+        "otherMethod": "",
+        "tools": [
+          "檢核表",
+          "評量題目"
+        ],
+        "otherTool": "",
+        "p": "P3：檢核發現時間、客觀描述、處理摘要與追蹤四項關鍵欄位；缺漏件全部標記。",
+        "rubric": "5張卡的缺漏辨識全部正確，修訂紀錄含全部4項關鍵欄位，並完成回報；未通過關鍵項須補練再測。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "methods": [
+          "作業評量",
+          "實作評量"
+        ],
+        "otherMethod": "",
+        "tools": [
+          "檢核表",
+          "評量題目"
+        ],
+        "otherTool": "",
+        "p": "P4：正確選取分子分母，算出30/50=60%，計算評量至少80分。",
+        "rubric": "計算100分：分子20、分母20、公式20、結果20、資料核對20；至少80分。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "methods": [
+          "作業評量",
+          "口頭報告"
+        ],
+        "otherMethod": "",
+        "tools": [
+          "檢核表",
+          "評量題目"
+        ],
+        "otherTool": "",
+        "p": "P5：提出含問題、原因、措施、角色、時程及指標的改善提案，量規至少80分。",
+        "rubric": "提案100分：問題證據25、原因20、措施25、指標20、呈現10；至少80分。"
+      }
+    ],
+    "t9": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "state": "預計／尚未執行",
+        "teacherName": "教學者A（模擬角色，尚未聘任）",
+        "teacherQualification": "預計依表7具長照品質與教學能力；尚無實際資格證明。",
+        "assessorName": "評量者B（模擬角色，尚未聘任）",
+        "assessorQualification": "預計熟悉量規並完成評分校準。",
+        "assistantName": "助教C（模擬角色，尚未聘任）",
+        "assistantQualification": "預計能支援試算表與紀錄。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "state": "預計／尚未執行",
+        "teacherName": "教學者A（模擬角色，尚未聘任）",
+        "teacherQualification": "預計依表7具長照品質與教學能力；尚無實際資格證明。",
+        "assessorName": "評量者B（模擬角色，尚未聘任）",
+        "assessorQualification": "預計熟悉量規並完成評分校準。",
+        "assistantName": "助教C（模擬角色，尚未聘任）",
+        "assistantQualification": "預計能支援試算表與紀錄。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "state": "預計／尚未執行",
+        "teacherName": "教學者A（模擬角色，尚未聘任）",
+        "teacherQualification": "預計依表7具長照品質與教學能力；尚無實際資格證明。",
+        "assessorName": "評量者B（模擬角色，尚未聘任）",
+        "assessorQualification": "預計熟悉量規並完成評分校準。",
+        "assistantName": "助教C（模擬角色，尚未聘任）",
+        "assistantQualification": "預計能支援試算表與紀錄。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "state": "預計／尚未執行",
+        "teacherName": "教學者A（模擬角色，尚未聘任）",
+        "teacherQualification": "預計依表7具長照品質與教學能力；尚無實際資格證明。",
+        "assessorName": "評量者B（模擬角色，尚未聘任）",
+        "assessorQualification": "預計熟悉量規並完成評分校準。",
+        "assistantName": "助教C（模擬角色，尚未聘任）",
+        "assistantQualification": "預計能支援試算表與紀錄。"
+      }
+    ],
+    "t10": {
+      "state": "預計／尚未試辦",
+      "start": "2026-11-02",
+      "end": "2026-11-03",
+      "participants": "10",
+      "finished": "0",
+      "qualified": "0",
+      "note": "【尚未試辦】規劃2026-11-02至11-03共12小時，預計招募10位新人或角色演練學員。參訓10是招募規劃；完訓0／達標0表示尚無實際結果，不能視為試辦成效。"
+    },
+    "t11": [
+      {
+        "unitId": "U1",
+        "unit": "事件紀錄與通報流程",
+        "state": "預計提供",
+        "item": "客觀紀錄作業、個資界線檢核表",
+        "link": "",
+        "note": "P1：依示意流程區分事實與推測，完成事件摘要；P2：不加入識別個資。；試辦後才有實際學習成果。"
+      },
+      {
+        "unitId": "U2",
+        "unit": "欄位檢核與情境溝通",
+        "state": "預計提供",
+        "item": "通報欄位檢核表、回報演練紀錄",
+        "link": "",
+        "note": "P3：檢核發現時間、客觀描述、處理摘要與追蹤四項關鍵欄位；缺漏件全部標記。；試辦後才有實際學習成果。"
+      },
+      {
+        "unitId": "U3",
+        "unit": "品質指標與試算表",
+        "state": "預計提供",
+        "item": "指標計算檔、評量結果與錯誤修訂",
+        "link": "",
+        "note": "P4：正確選取分子分母，算出30/50=60%，計算評量至少80分。；試辦後才有實際學習成果。"
+      },
+      {
+        "unitId": "U4",
+        "unit": "原因分析與PDCA提案",
+        "state": "預計提供",
+        "item": "原因分析圖、PDCA提案、口頭報告量規",
+        "link": "",
+        "note": "P5：提出含問題、原因、措施、角色、時程及指標的改善提案，量規至少80分。；試辦後才有實際學習成果。"
+      }
+    ],
+    "t12": [
+      {
+        "category": "各階段評量",
+        "enabled": "採用",
+        "criterion": "通過",
+        "standard": "U1／U3／U4至少80分；U2全部關鍵欄位與缺漏辨識通過。未達者補練並再評量。"
+      },
+      {
+        "category": "學科",
+        "enabled": "不採用",
+        "criterion": "不適用",
+        "standard": "不另設學科結訓門檻。"
+      },
+      {
+        "category": "術科",
+        "enabled": "採用",
+        "criterion": "通過",
+        "standard": "U2關鍵項全數通過；U3計算作業至少80分。"
+      },
+      {
+        "category": "其他",
+        "enabled": "不採用",
+        "criterion": "不適用",
+        "standard": ""
+      }
+    ],
+    "addie": [
+      {
+        "stage": "A 分析",
+        "indicator": "1.1 職能依據",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "職能分析文件",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "A 分析",
+        "indicator": "1.2 課程地圖",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "課程地圖",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "D 設計",
+        "indicator": "2.1 教學／訓練目標",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "訓練目標文件",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "D 設計",
+        "indicator": "2.2 課程內容",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "課程內容",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "D 發展",
+        "indicator": "3.1 教學方法",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "教學方法設計",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "D 發展",
+        "indicator": "3.2 教材與教學資源",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "課程教材、執行人員資格文件",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "I 執行",
+        "indicator": "4.1 課程辦理",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "招生簡章、滿意度調查、課程實施紀錄",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "E 評估",
+        "indicator": "5.1 學習成果評量",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "學員名單及成績總表、評量工具及評分標準",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "E 評估",
+        "indicator": "5.2 學習成果證據",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "學習成果證據",
+        "state": "預計製作",
+        "link": ""
+      },
+      {
+        "stage": "E 評估",
+        "indicator": "5.3 管控評估",
+        "participation": "預計由品質主管、資深行政、新人、教學者檢視；目前只有教學設定。",
+        "evidence": "管控機制佐證文件",
+        "state": "預計製作",
+        "link": ""
+      }
+    ],
+    "stakeholders": [
+      {
+        "date": "2026-10-26",
+        "role": "品質主管（模擬）",
+        "state": "模擬訪談",
+        "opinion": "希望通報資料完整且可供追蹤，不能靠補登來掩蓋漏報。",
+        "response": "加入關鍵欄位檢核與漏報限制討論。",
+        "link": ""
+      },
+      {
+        "date": "2026-10-26",
+        "role": "資深行政人員（模擬）",
+        "state": "模擬訪談",
+        "opinion": "新人不熟欄位定義，表單缺少填寫示範。",
+        "response": "製作欄位提示卡與案例樣本。",
+        "link": ""
+      },
+      {
+        "date": "2026-10-26",
+        "role": "入職新人（模擬）",
+        "state": "模擬訪談",
+        "opinion": "希望先看完整示範，再自行演練與接受回饋。",
+        "response": "各單元加入示範、實作及補練。",
+        "link": ""
+      }
+    ],
+    "pdca": {
+      "problem": "【虛構】50份合成通報中有20份缺少關鍵欄位，妨礙後續追蹤；並不表示實際事件率或住民安全改善。",
+      "baseline": "完整件數30／合成通報50＝60%。基準資料全為教師生成，不是機構現況。",
+      "goal": "【教學假設】第二批50份合成通報至少45份完整，完整率達90%。這是企劃目標，不是已完成結果或官方標準。",
+      "causes": "原因假說：欄位定義不清、缺示範、新人未演練、主管抽核不一致。魚骨圖分人員、方法、工具與管理；正式應用需訪談及資料確認。",
+      "plan": "P：品質主管與教學者於2026-10-26確認示意SOP、四項關鍵欄位與教材；建立基準與評量工具。",
+      "do": "D：2026-11-02至11-03實施12小時培訓，配套欄位提示卡與每週抽核；以10位模擬／新人學員規劃。",
+      "check": "C：2026-11-04至11-30每週檢核合成通報，記錄完整件數與總件數；比對第二批50件是否達45件完整，同時記錄缺漏類型、補件負擔與漏報風險。",
+      "act": "A：2026-11-30檢討。達標且無不當補登才將提示卡納入新人教材；未達標依原因修訂工具、流程或補練；不得將所有問題歸咎新人。",
+      "indicator": "通報關鍵欄位完整率＝四項關鍵欄位均完整的合成通報件數／同一期間全部合成通報件數×100%。四項：發現時間、客觀描述、處理摘要、後續追蹤。分母為通報件數，不能當住民事件率；只有漏報資料不在此分母，需另外檢討。每週逐件核對，分母為0時標示「無法計算」。",
+      "owner": "模擬品質主管：定義與抽核；教學者：培訓與評量；新人：演練與修訂；行政協助：彙整資料。",
+      "deadline": "2026-11-30"
+    },
+    "references": {
+      "sources": "1.使用者提供之「iCAP課程規劃與執行報告書格式(ODT檔).odt」：作為欄位與表1–12結構依據，2026-10-07整理。2.青禾長照之家、SOP、訪談角色、50份通報與各項數值皆為本案例自行設計的教學素材，沒有真實訪談或臨床證據。3.正式應用時另補機構SOP版本、同意訪談紀錄與專業審閱紀錄。",
+      "ai": "AI協助整理案例、課程表與PDCA範例；教師與學生須核對時數、指標分子分母、P/K/S與評量一致性。本例不是實際需求調查、試辦結果或iCAP認證。"
+    }
+  }
+};
+function emptyValue(f){return f.type==='multi'?[]:f.type==='select'?f.options[0]:'';}
+function initialSection(sec){return sec.repeat?(sec.initial?JSON.parse(JSON.stringify(sec.initial)):[Object.fromEntries(sec.fields.map(f=>[f.key,emptyValue(f)]))]):Object.fromEntries(sec.fields.map(f=>[f.key,emptyValue(f)]));}
+function sectionErrors(sec,content){
+ const errors=[],rows=sec.repeat?content:[content];
+ if(!Array.isArray(rows)||!rows.length)return ['至少填寫一列'];
+ rows.forEach((row,i)=>{const prefix=sec.repeat?'第'+(i+1)+'列：':'';
+ sec.fields.forEach(f=>{const value=row[f.key],missing=f.type==='multi'?!Array.isArray(value)||!value.length:typeof value!=='string'||!value.trim();
+ if(!f.optional&&missing)errors.push(prefix+f.label+'必填');
+ if(!missing&&f.type==='number'&&(!Number.isFinite(Number(value))||Number(value)<=0))errors.push(prefix+f.label+'需大於0');
+ if(!missing&&f.type==='integer'&&(!Number.isInteger(Number(value))||Number(value)<0))errors.push(prefix+f.label+'需為非負整數');
+ if(!missing&&f.type==='date'&&(!/^\d{4}-\d{2}-\d{2}$/.test(value)||isNaN(Date.parse(value+'T00:00:00Z'))))errors.push(prefix+f.label+'日期不正確');
+ if(!missing&&f.type==='url'&&!/^https:\/\//.test(value))errors.push(prefix+f.label+'需為HTTPS網址');
+ if(typeof value==='string'&&value.length>(['need','intro','purpose'].includes(sec.id)?1000:3000))errors.push(prefix+f.label+'超過字數上限');
+ });
+ if(sec.id==='t5'&&row.methods?.includes('其他')&&!row.other?.trim())errors.push(prefix+'其他方法需說明');
+ if(sec.id==='t6'&&row.equipment?.includes('其他')&&!row.other?.trim())errors.push(prefix+'其他設備需說明');
+ if(sec.id==='t8'){if(row.methods?.includes('其他')&&!row.otherMethod?.trim())errors.push(prefix+'其他評量方式需說明');if(row.tools?.includes('其他')&&!row.otherTool?.trim())errors.push(prefix+'其他工具需說明');for(const k of ['methods','tools'])if(row[k]?.includes('無')&&row[k].length>1)errors.push(prefix+'「無」不能與其他選項並用');}
+ if(sec.id==='t12'&&row.enabled==='採用'&&(row.criterion==='不適用'||!row.standard?.trim()))errors.push(prefix+'採用項目需寫明結訓標準');
+ if(row.start&&row.end&&row.end<row.start)errors.push(prefix+'結束日期不得早於開始日期');
+ });
+ if(sec.id==='t12'&&!rows.some(r=>r.enabled==='採用'))errors.push('至少採用一項結訓標準');
+ if(sec.id==='t10'&&Number(content.qualified)>Number(content.finished))errors.push('結訓人數不可大於完訓人數');
+ if(sec.id==='t10'&&Number(content.finished)>Number(content.participants))errors.push('完訓人數不可大於參訓人數');
+ return errors;
+}
+function proposalErrors(d){
+ const errors=[];for(const k of ['name','studentId','grade','className'])if(!d.student[k]?.trim())errors.push('學生資料：'+({name:'姓名',studentId:'學號',grade:'年級',className:'班級'}[k])+'必填');
+ SCHEMA.forEach(s=>sectionErrors(s,d.sections[s.id]).forEach(e=>errors.push(s.title+'：'+e)));
+ const sum=(d.sections.t4||[]).reduce((n,r)=>n+Number(r.hours||0),0),total=Number(d.sections.info?.hours||0);if(!Number.isFinite(sum)||Math.abs(sum-total)>0.001)errors.push('表4時數加總 '+sum+' 與課程總時數 '+total+' 不一致');
+ const tasks=new Set((d.sections.t1||[]).map(r=>r.taskId));for(const row of d.sections.t2||[])if(!tasks.has(row.taskId))errors.push('表2任務代碼 '+row.taskId+' 未列於表1（每列先對應一個主要任務）');
+ const ids=new Set((d.sections.t3||[]).map(r=>r.unitId));for(const key of ['t2','t4','t5','t6','t7','t8','t9','t11'])for(const row of d.sections[key]||[])if(!ids.has(row.unitId))errors.push(key.replace('t','表')+'單元代碼 '+row.unitId+' 未列於表3');
+ for(const key of ['t1','t3']){const list=d.sections[key]||[],k=key==='t1'?'taskId':'unitId';if(new Set(list.map(r=>r[k])).size!==list.length)errors.push(key.replace('t','表')+'代碼不可重複');}
+ return errors;
+}
+if(typeof module!=='undefined')module.exports={emptyValue,initialSection,sectionErrors,proposalErrors};
+
+const $=id=>document.getElementById(id),native=typeof google!=='undefined'&&!!google.script?.run;
+const KEY='quality-planner-v2',uuid=()=>crypto.randomUUID();
+let draft={schemaVersion:2,projectId:uuid(),editKey:uuid()+uuid(),student:{name:'',studentId:'',grade:'四年級',className:'',track:'醫院品質管理企劃課'},sections:Object.fromEntries(SCHEMA.map(s=>[s.id,initialSection(s)])),saved:{},active:0},pending={},busy=false,finalRequest=null;
+let oldNotice='';try{const old=localStorage.getItem(KEY);if(old){const parsed=JSON.parse(old);validateBackup(parsed);if(parsed.schemaVersion===2&&parsed.sections)draft=parsed;}else if(localStorage.getItem('quality-planner-v1'))oldNotice='偵測到舊版草稿。舊版文字仍保留於瀏覽器；請下載舊版備份作為參考後，改填新版逐欄表格。';}catch(e){oldNotice='無法讀取本機草稿。請匯入備份。';}
+const identityMap={studentName:'name',studentId:'studentId',grade:'grade',className:'className',track:'track'};
+Object.entries(identityMap).forEach(([id,k])=>{$(id).value=draft.student[k]||'';$(id).oninput=()=>{draft.student[k]=$(id).value.trim();SCHEMA.forEach(s=>delete draft.saved[s.id]);persist();updateProgress();};});
+$('connection').textContent=native?'雲端存檔版：每段按「存檔」後寫入教師 Google Sheet，收到回執才算成功。':WEB_APP_URL?'此頁可本機填寫；雲端存檔請開啟下方教師系統，先下載備份並於雲端版匯入。':'目前可逐段填寫與本機存檔；指定帳號的 GAS 尚待建立／部署，Google Sheet 寫入未啟用。';
+if(!native&&WEB_APP_URL){const a=document.createElement('a');a.href=WEB_APP_URL;a.target='_blank';a.className='button';a.textContent='開啟教師雲端存檔版';$('connection').append(document.createElement('br'),a);}
+$('globalStatus').textContent=oldNotice;
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(draft));return true;}catch(e){$('globalStatus').textContent='此瀏覽器無法儲存草稿，請下載備份。';return false;}}
+function markDirty(id){delete draft.saved[id];delete pending[id];persist();updateProgress();$('state-'+id).textContent='內容已更新，請按存檔；輸入內容已盡可能自動保存在本機草稿。';}
+function fieldControl(sec,f,row,index){const wrap=document.createElement('div'),label=document.createElement('label'),id=sec.id+'-'+index+'-'+f.key;label.textContent=f.label+(f.optional?'（選填）':'');label.htmlFor=id;let input;
+ if(f.type==='multi'){input=document.createElement('fieldset');input.setAttribute('aria-label',sec.title+'第'+(index+1)+'列 '+f.label);f.options.forEach(option=>{const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.checked=(row[f.key]||[]).includes(option);c.onchange=()=>{const set=new Set(row[f.key]||[]);c.checked?set.add(option):set.delete(option);row[f.key]=[...set];markDirty(sec.id)};l.append(c,document.createTextNode(option));input.append(l)});}
+ else{input=document.createElement(f.type==='textarea'?'textarea':f.type==='select'?'select':'input');input.id=id;input.setAttribute('aria-label',sec.title+(sec.repeat?' 第'+(index+1)+'列':'')+' '+f.label);if(f.type==='select')f.options.forEach(v=>input.add(new Option(v,v)));else if(f.type!=='textarea'){input.type=['number','integer'].includes(f.type)?'number':f.type==='date'?'date':f.type==='url'?'url':'text';if(['number','integer'].includes(f.type)){input.min=f.type==='integer'?'0':'0.5';input.step=f.type==='integer'?'1':'0.5';}}
+ input.value=row[f.key]||'';input.maxLength=['need','intro','purpose'].includes(sec.id)?1000:3000;input.oninput=()=>{row[f.key]=input.value;markDirty(sec.id);if(sec.id==='t4')updateHours()};}
+ wrap.append(label,input);if(f.hint){const hint=document.createElement('p');hint.className='hint';hint.textContent=f.hint;wrap.append(hint)}return wrap;}
+function renderSection(sec,i){let panel=$('section-'+sec.id);if(!panel){panel=document.createElement('section');panel.id='section-'+sec.id;panel.className='panel';$('sections').append(panel);}panel.replaceChildren();panel.hidden=i!==draft.active;
+ const h=document.createElement('h2');h.textContent=sec.title;const guide=document.createElement('p');guide.className='note';guide.textContent=sec.guide;panel.append(h,guide);
+ if(sec.repeat){const hint=document.createElement('p');hint.className='hint';hint.textContent='每一列獨立填寫。表格可左右滑動查看全部欄位；按「新增一列」增加工作任務或單元。';panel.append(hint);const scroll=document.createElement('div');scroll.className='tablewrap';const table=document.createElement('table'),caption=document.createElement('caption');caption.textContent=sec.title+'填寫表格';table.append(caption);const head=document.createElement('thead'),tr=document.createElement('tr');['列次',...sec.fields.map(f=>f.label),'操作'].forEach(v=>{const th=document.createElement('th');th.scope='col';th.textContent=v;tr.append(th)});head.append(tr);table.append(head);const body=document.createElement('tbody');draft.sections[sec.id].forEach((row,j)=>{const tr=document.createElement('tr'),n=document.createElement('td');n.textContent=j+1;tr.append(n);sec.fields.forEach(f=>{const td=document.createElement('td');td.append(fieldControl(sec,f,row,j));tr.append(td)});const td=document.createElement('td'),del=document.createElement('button');del.textContent='移除第'+(j+1)+'列';del.className='secondary';del.disabled=draft.sections[sec.id].length===1;del.onclick=()=>{if(confirm('移除這一列？')){draft.sections[sec.id].splice(j,1);markDirty(sec.id);renderSection(sec,i)}};td.append(del);tr.append(td);body.append(tr)});table.append(body);scroll.append(table);panel.append(scroll);const add=document.createElement('button');add.className='secondary';add.textContent='新增一列';add.onclick=()=>{if(draft.sections[sec.id].length>=30){setMessage(sec.id,'每張表最多30列');return}draft.sections[sec.id].push(Object.fromEntries(sec.fields.map(f=>[f.key,emptyValue(f)])));markDirty(sec.id);renderSection(sec,i)};panel.append(add);}
+ else sec.fields.forEach(f=>panel.append(fieldControl(sec,f,draft.sections[sec.id],0)));
+ if(sec.id==='t4'){const p=document.createElement('p');p.id='hoursTotal';panel.append(p);updateHours();}
+ const example=document.createElement('button');example.textContent='載入本段教學範例';example.className='secondary';example.onclick=()=>{if(confirm('將覆蓋本段內容，是否載入模擬範例？')){draft.sections[sec.id]=JSON.parse(JSON.stringify(EXAMPLES[sec.id]).replaceAll('〔場域〕',draft.student.track.startsWith('醫院')?'醫院':'長照機構'));markDirty(sec.id);renderSection(sec,i);}};panel.append(example);
+ const actions=document.createElement('div');actions.className='actions';const prev=document.createElement('button');prev.textContent='上一段';prev.className='secondary';prev.disabled=i===0;prev.onclick=()=>go(i-1);const save=document.createElement('button');save.textContent=native?'存檔到 Google Sheet':'存檔到本機';save.dataset.save=sec.id;save.onclick=()=>saveSection(sec.id);const download=document.createElement('button');download.textContent='下載本段備份';download.className='secondary';download.onclick=()=>downloadJSON({...draft,sections:{[sec.id]:draft.sections[sec.id]},partial:true,sectionId:sec.id},sec.title+'備份.json');const next=document.createElement('button');next.textContent='下一段';next.className='secondary';next.disabled=i===SCHEMA.length-1;next.onclick=()=>go(i+1);actions.append(prev,save,download,next);panel.append(actions);
+ const state=document.createElement('p');state.id='state-'+sec.id;state.className='meta statusline';state.textContent=draft.saved[sec.id]?('已存檔：'+draft.saved[sec.id].at+' · '+draft.saved[sec.id].where):'尚未按存檔；可先儲存未完成的草稿。';const message=document.createElement('p');message.id='message-'+sec.id;message.className='message';message.setAttribute('role','status');panel.append(state,message);}
+function updateHours(){if(!$('hoursTotal'))return;const total=draft.sections.t4.reduce((sum,r)=>sum+Number(r.hours||0),0);$('hoursTotal').textContent='表4合計：'+total+'小時；課程總時數：'+(draft.sections.info.hours||'尚未填寫')+'小時。'}
+function render(){ $('nav').replaceChildren();SCHEMA.forEach((s,i)=>{const b=document.createElement('button');b.textContent=(i+1)+'. '+s.title;b.dataset.section=s.id;b.onclick=()=>go(i);$('nav').append(b);renderSection(s,i)});updateProgress();go(draft.active,false);}
+function go(i,scroll=true){draft.active=Math.max(0,Math.min(SCHEMA.length-1,i));SCHEMA.forEach((s,j)=>{$('section-'+s.id).hidden=j!==draft.active;const b=document.querySelector('nav button[data-section="'+s.id+'"]');b.setAttribute('aria-current',j===draft.active?'step':'false')});persist();if(scroll)$('sections').scrollIntoView({behavior:'smooth',block:'start'});}
+function updateProgress(){const filled=SCHEMA.filter(s=>sectionErrors(s,draft.sections[s.id]).length===0).length,saved=Object.keys(draft.saved).length;$('progress').textContent='已符合段落必填：'+filled+'／'+SCHEMA.length+'；已按存檔：'+saved+'／'+SCHEMA.length;}
+function setMessage(id,message){$('message-'+id).textContent=message;}
+function identityErrors(){return ['name','studentId','grade','className'].filter(k=>!draft.student[k]?.trim()).map(k=>({name:'姓名',studentId:'學號',grade:'年級',className:'班級'}[k]));}
+function rpc(name,payload){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[name](payload));}
+async function saveSection(id){if(busy)return;const sec=SCHEMA.find(s=>s.id===id),errors=sectionErrors(sec,draft.sections[id]);if(!native){const at=new Date().toLocaleString('zh-TW');draft.saved[id]={at,where:'本機存檔'};if(persist()){$('state-'+id).textContent='已存檔於本機：'+at;setMessage(id,errors.length?'草稿已存檔；仍需完成：\n'+errors.join('\n'):'本段已完成並存檔。Google Sheet 尚未寫入。');}else delete draft.saved[id];updateProgress();return;}
+ if(identityErrors().length){setMessage(id,'雲端存檔前請填：'+identityErrors().join('、'));return}if(!$('classCode').value.trim()){setMessage(id,'請填教師提供的課程代碼');return}if(!$('consent').checked){setMessage(id,'請先勾選資料用於課堂評量的確認欄。');return}
+ const content=JSON.stringify(draft.sections[id]),student=JSON.stringify(draft.student);let request=pending[id];if(!request||request.content!==content||request.student!==student)pending[id]=request={id:uuid(),content,student};
+ busy=true;document.querySelectorAll('button[data-save]').forEach(b=>b.disabled=true);setMessage(id,'正在存入教師 Google Sheet…');
+ try{const r=await rpc('saveSection',{schemaVersion:2,projectId:draft.projectId,editKey:draft.editKey,requestId:request.id,classCode:$('classCode').value.trim(),student:draft.student,sectionId:id,content:JSON.parse(content)});if(content===JSON.stringify(draft.sections[id])&&student===JSON.stringify(draft.student)){draft.saved[id]={at:r.savedAt,where:'Google Sheet',receipt:r.receipt};delete pending[id];persist();$('state-'+id).textContent='已存入 Google Sheet：'+r.savedAt;}setMessage(id,'儲存成功，回執：'+r.receipt+(errors.length?'\n仍待完成：\n'+errors.join('\n'):''));}
+ catch(e){setMessage(id,'未確認儲存成功：'+e.message+'。已保留草稿，可重試。');}finally{busy=false;document.querySelectorAll('button[data-save]').forEach(b=>b.disabled=false);updateProgress();}}
+function downloadJSON(value,filename){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('backup').onclick=()=>downloadJSON(draft,'品質企劃完整備份.json');
+function validateBackup(d){if(d?.schemaVersion!==2||!d.sections||!d.student||typeof d.projectId!=='string'||typeof d.editKey!=='string')throw Error('僅支援新版逐欄備份；舊版備份請保留作為填表參考。');for(const [id,content] of Object.entries(d.sections)){const sec=SCHEMA.find(s=>s.id===id);if(!sec)throw Error('未知段落');const rows=sec.repeat?content:[content];if(!Array.isArray(rows)||!rows.length||rows.length>30)throw Error('表格列數不符');for(const row of rows)for(const f of sec.fields){const v=row[f.key];if(f.type==='multi'){if(!Array.isArray(v)||v.some(x=>!f.options.includes(x)))throw Error('複選內容不符');}else if(typeof v!=='string'||v.length>3000)throw Error('欄位內容不符');}}}
+$('import').onchange=async e=>{try{const d=JSON.parse(await e.target.files[0].text());validateBackup(d);if(!confirm('匯入會覆蓋'+(d.partial?'本段':'整份')+'內容；建議先下載目前備份。'))return;if(d.partial){draft.sections[d.sectionId]=d.sections[d.sectionId];delete draft.saved[d.sectionId];}else{draft=d;draft.active=0;pending={};}Object.entries(identityMap).forEach(([id,k])=>$(id).value=draft.student[k]||'');persist();render();$('globalStatus').textContent='備份已匯入。';}catch(err){$('globalStatus').textContent='匯入失敗：'+err.message;}e.target.value='';};
+$('loadCloud').onclick=async()=>{if(!native){$('globalStatus').textContent='請先開啟教師雲端存檔版，並匯入您的完整備份。';return}if(!$('classCode').value.trim()){$('globalStatus').textContent='請輸入課程代碼';return}if(!confirm('讀回雲端存檔會覆蓋本機已有的同段內容，請先下載備份。'))return;try{const result=await rpc('loadProposal',{projectId:draft.projectId,editKey:draft.editKey,classCode:$('classCode').value.trim()});Object.assign(draft.sections,result.sections);draft.saved=result.saved;draft.student=result.student;Object.entries(identityMap).forEach(([id,k])=>$(id).value=draft.student[k]||'');persist();render();$('globalStatus').textContent='已讀回自己的雲端存檔。';}catch(e){$('globalStatus').textContent='讀取失敗：'+e.message;}};
+$('reset').onclick=()=>{if(confirm('開始新企劃並清除本機草稿？雲端歷史不會刪除，請先下載備份。')){try{localStorage.removeItem(KEY)}catch(e){}location.reload();}};
+$('review').onclick=()=>{const errors=proposalErrors(draft);$('reviewResult').textContent=errors.length?errors.join('\n'):'整份企劃已通過必填、時數與代碼對應檢查。';};
+$('submit').onclick=async()=>{const errors=proposalErrors(draft);if(errors.length){$('reviewResult').textContent='請先修正：\n'+errors.join('\n');return}if(!$('consent').checked){$('reviewResult').textContent='請勾選資料用於課堂評量的確認欄。';return}if(!native){$('reviewResult').textContent='完整檢核通過，但此頁尚未連接 Google Sheet。請下載備份後在雲端存檔版匯入。';return}if(!$('classCode').value.trim()){$('reviewResult').textContent='請輸入教師課程代碼';return}$('submit').disabled=true;try{const r=await rpc('submitProposal',{...draft,requestId:(()=>{const signature=JSON.stringify({student:draft.student,sections:draft.sections});if(!finalRequest||finalRequest.signature!==signature)finalRequest={id:uuid(),signature};return finalRequest.id;})(),classCode:$('classCode').value.trim()});SCHEMA.forEach(s=>draft.saved[s.id]={at:r.savedAt,where:'Google Sheet',receipt:r.receipt});persist();updateProgress();finalRequest=null;$('reviewResult').textContent='完整企劃已提交並存檔。回執：'+r.receipt+'\n時間：'+r.savedAt;}catch(e){$('reviewResult').textContent='未確認整份提交成功：'+e.message;}finally{$('submit').disabled=false;}};
+$('print').onclick=()=>{const report=$('report');report.replaceChildren();const h=document.createElement('h1');h.textContent='品質管理企劃報告';const p=document.createElement('p');p.textContent=draft.student.name+'／'+draft.student.studentId+'／'+draft.student.grade+'／'+draft.student.className+'\n'+draft.student.track;report.append(h,p);SCHEMA.forEach(sec=>{const section=document.createElement('section'),h=document.createElement('h2');h.textContent=sec.title;section.append(h);if(sec.repeat){const table=document.createElement('table'),tr=document.createElement('tr');sec.fields.forEach(f=>{const th=document.createElement('th');th.textContent=f.label;tr.append(th)});table.append(tr);draft.sections[sec.id].forEach(row=>{const tr=document.createElement('tr');sec.fields.forEach(f=>{const td=document.createElement('td');td.textContent=Array.isArray(row[f.key])?row[f.key].join('、'):row[f.key];tr.append(td)});table.append(tr)});section.append(table)}else sec.fields.forEach(f=>{const h=document.createElement('h3'),p=document.createElement('p');h.textContent=f.label;p.textContent=draft.sections[sec.id][f.key];section.append(h,p)});report.append(section)});window.print();};
+render();
+
+$('caseLoad').onclick=()=>{if(!confirm('載入完整教學案例會覆蓋全部企劃內容，保留學生資料；請先下載目前備份。案例全部為虛構，不會自動提交。'))return;draft.sections=JSON.parse(JSON.stringify(TEACHING_CASE.sections));draft.student.track=TEACHING_CASE.track;draft.projectId=uuid();draft.editKey=uuid()+uuid();draft.saved={};draft.active=0;pending={};finalRequest=null;$('track').value=draft.student.track;persist();render();$('globalStatus').textContent='已載入完整虛構長照案例。請逐段操作與存檔；目前未自動提交。';};
+
 </script></body></html>

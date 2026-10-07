@@ -1,30 +1,36 @@
-# 用 GAS 自動建立 Google Sheet
+# 正確帳號與逐段雲端存檔
 
-1. 在 Google Apps Script 建立專案，命名「大四品質管理企劃教室」。
-2. 將 `apps-script/Code.gs` 貼入程式碼檔；新增 HTML 檔 `Index`，貼入 `apps-script/Index.html`。
-3. 執行 `setup()`。Google 首次會要求試算表授權，教師自行審閱並授權。函式自動建立私人試算表，於執行紀錄顯示試算表網址和課程代碼；重跑不會重建。
-4. 部署 → 新增部署 → 網頁應用程式。執行身分選自己；依學校帳號可用設定選學生可存取的範圍。不要公開試算表。取得 `/exec` 網址。
-5. 學生可直接開啟 GAS 網址並填寫。若要從 GitHub Pages 直接送出，在 build.py 的 `WEB_APP_URL` 填入該網址，再重新生成及推送；網址本身不是秘密，課程代碼不能寫入原始碼。
-6. 教師私下提供課程代碼。`CLASS_CODE` 可在專案設定的指令碼屬性中輪換；不要以空值開放提交。
-7. 用虛構姓名與學號 `00001234` 完成一次提交，確認有回執且 Sheet 新增一列；確認學號前導零保留；重送同一識別碼應同一回執、沒有重複列；錯誤代碼不得新增列。測試紀錄保留清楚的 TEST 標記或由教師刪除。
-8. Apps Script 原生網頁每次成功後產生新的提交識別碼；再次提交是新版本。GitHub Pages 回執另開視窗，原頁無法驗證回執，應下載新備份／重開新版企劃來產生新識別碼（目前相同識別碼視為重送）。
+**教師帳號：chatgpt.cjcu@gmail.com**。不要在 joe.cjcu@gmail.com 建立或部署本課程的新版本。
 
-## 欄位及保護
+## 已完成與待完成
 
-每份作業只限一位學生。提交者不能讀取任何既有學生作業；後端只回傳此次回執與時間。課程代碼存於指令碼屬性，與私人 SHEET_ID 分離於公開程式碼之外。以鎖避免並發重複寫入，伺服器驗證必填與字數。
+新版有21個步驟。對應的23個收件工作表已透過已驗證登入 chatgpt.cjcu@gmail.com 的 Google Drive 連接工具建立：完整提交、21個段落、企劃索引。試算表存放在教師 My Drive／ChatGPT 資料夾，未開放公開分享。
 
-本機草稿包含姓名學號；共用電腦使用後清除。教師應依學校政策設定保存期限及通知方式，勿將學生試算表公開。課程代碼不是學籍驗證，正式評量需教師核對名冊。
+GAS 部署尚未完成；目前瀏覽器控制只連接到 Chrome「祐倉」個人資料，尚看不到教師指定帳號的已登入分頁。GitHub Pages 不會誤稱已雲端存檔。
 
-## 參考文件
+## 安裝
 
-- [Google Apps Script 網頁應用程式](https://developers.google.com/apps-script/guides/web)
-- [HTML service 與伺服器通訊](https://developers.google.com/apps-script/guides/html/communication)
-- [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
+1. 在 **chatgpt.cjcu@gmail.com** 登入的瀏覽器開啟 Apps Script，建立「大四品質管理企劃教室｜逐段逐表」。
+2. 將私人單檔安裝稿貼入程式碼檔並儲存。私人稿已指定本次建立的收件試算表；通用版 `apps-script/Install.gs.txt` 沒有預設試算表，會自動建立新的一份。
+3. 執行 setup。函式會確認帳號，連接已指定 Sheet 或建立新 Sheet，準備23個工作表及課程代碼。首次 Google 授權須由帳戶持有人審閱。
+4. 若希望使用分檔方式，貼入 `apps-script/Code.gs`，新增HTML檔 Index並貼入 `apps-script/Index.html`；可在指令碼屬性設定已建立 Sheet 的 SHEET_ID。
+5. 執行紀錄會顯示教師試算表連結與 CLASS_CODE。把課程代碼私下提供給學生，不要寫入公開程式碼。
+6. 部署為網頁應用程式，以自己（教師）執行，存取範圍依校內可用設定與授課對象選擇。學生使用 /exec 網址。
+7. 將 /exec 網址寫入 config.json 的 webAppUrl，重新生成、推送。GitHub Pages 會提供進入教師雲端版的連結。若已在本機填寫，可下載完整備份後在雲端版匯入。
 
-## 本次建置狀態（2026-10-07）
+## 驗證
 
-已在教師帳戶建立 [大四品質管理企劃教室 GAS 專案](https://script.google.com/home/projects/1r3q-Lak_jsl3hTfxBC2m1tAUTM3E6AAlaaxzFxnp6vmdxdBwtt8vHRp3/edit)，程式已儲存。該專案使用 Code-github.gs.example 的等效程式：從固定 GitHub 提交讀取公開 HTML，不向 GitHub 傳送學生資料；另需外部請求權限。
+- 虛構 TEST 學生，學號00001234：未完成的需求段落應可存為草稿，成功時有回執，Sheet保留學號前導零。
+- 修改後再次存檔產生新版本；同一請求重送不重複新增。
+- 新瀏覽器先匯入自己的完整備份，再「讀回我的雲端存檔」，應恢復各段最新內容。
+- 錯誤課程代碼或續填密鑰不得讀／寫其他人的作業。
+- 表4加總不等總時數、任務／單元代碼無對應、必填未完成時，不能完整提交；草稿仍可存檔。
+- 完整提交最後才新增「完整提交」紀錄；若中途失敗，部分段落可能已存為版本，仍不能視為完整提交成功。
 
-首次執行 setup 時 Google 顯示「系統已封鎖這個應用程式」，未完成授權，故沒有建立試算表、未部署 /exec、未做真實寫入驗證。需帳戶持有人依 Google 帳戶或機構政策處理 Apps Script 授權阻擋。不要以改網址等方式繞過阻擋。處理後再執行 setup、部署，並完成上列實際測試。
+目前程式模擬測試已通過；真實GAS執行與Sheet寫入須等指定帳號部署完成再驗證。
 
-若希望免除外部讀取，改用 Code.gs 和本地 Index.html 的雙檔方式；仍需要 Google 試算表授權。
+## 保存與存取
+
+同學自行保管完整備份，裡面含續填密鑰；遺失密鑰時不要只以學號提供公開查詢，可由教師依校內規範核對身分後協助。共用電腦使用後清除本機草稿。學生資料只在私人Sheet，教師需管理保存期限。課程代碼不等於學籍驗證。
+
+參考：[GAS網頁應用程式](https://developers.google.com/apps-script/guides/web)、[google.script.run](https://developers.google.com/apps-script/guides/html/communication)。
