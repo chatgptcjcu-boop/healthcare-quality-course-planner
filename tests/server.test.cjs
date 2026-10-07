@@ -1,0 +1,15 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const values=[],properties={SHEET_ID:'test',CLASS_CODE:'test-code'};let released=0;
+const sheet={getLastRow:()=>values.length,appendRow:r=>values.push(r),setFrozenRows(){},getRange:(row,col,count,width)=>({getValues:()=>values.slice(row-1,row-1+count).map(r=>r.slice(col-1,col-1+width))})};
+const context={PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties[k]})},SpreadsheetApp:{openById:()=>({getSheetByName:()=>sheet}),flush(){}},Utilities:{formatDate:()=> '2026-10-07 12:00:00'},LockService:{getScriptLock:()=>({waitLock(){},releaseLock(){released++}})},console};
+vm.createContext(context);vm.runInContext(fs.readFileSync('apps-script/Code.gs','utf8'),context);
+const d={schemaVersion:1,submissionId:'12345678-1234-1234-1234-123456789abc',classCode:'test-code',track:'醫院品質管理企劃課',phase:'規劃中，尚未試辦',members:[{name:'TEST 學生',studentId:'00001234',grade:'四年級'}]};context.fields_().forEach(k=>d[k]='測試資料');d.hours='12';
+assert.throws(()=>context.submitProposal({...d,classCode:'wrong'}),/代碼/);assert.equal(values.length,0);
+const a=context.submitProposal(d),b=context.submitProposal(d);assert.equal(a.receipt,b.receipt);assert.equal(values.length,2);assert.equal(values[1][3],"'00001234");assert.equal(values[0].length,values[1].length);assert.equal(released,2);
+assert.throws(()=>context.submitProposal({...d,members:[...d.members,...d.members]}),/一位/);
+assert.throws(()=>context.submitProposal({...d,need:'字'.repeat(1001)}),/長度/);
+assert.throws(()=>context.submitProposal({...d,hours:'0'}),/時數/);
+assert.throws(()=>context.submitProposal({...d,competencies:''}),/必填/);
+assert.equal(context.safeCell_(' =IMPORTXML("x")'),'\' =IMPORTXML("x")');
+assert.equal(context.escape_('<script>'),'&lt;script&gt;');
+console.log('PASS：代碼、個別學生、字數、時數、必填、重送、欄位、學號、公式與HTML防護');
