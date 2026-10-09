@@ -19,6 +19,9 @@ assert.throws(()=>context.submitProposal({...d,sections:{...examples,info:{...ex
 const final=context.submitProposal(d),again=context.submitProposal(d);assert.equal(final.receipt,again.receipt);assert.equal(sheets['完整提交'].values.length,2);
 const map=context.loadProposal(base);assert.equal(Object.keys(map.sections).length,21);assert.equal(map.sections.t1[0].taskId,'T1');
 const t4=sheets['表4｜課程內容'].values[1];assert.equal(typeof t4[12],'number');
+const author={...base,projectId:crypto.randomUUID(),editKey:crypto.randomUUID()+crypto.randomUUID(),requestId:crypto.randomUUID(),student:{name:'TEST作者',studentId:'不適用（作者）',grade:'不適用（教師／作者）',className:'TEST主辦單位',track:'宮廟管理職能導向種子師資培訓課程'}};
+context.saveSection(author);assert.equal(context.loadProposal(author).student.className,'TEST主辦單位');assert.equal(context.loadProposal(author).student.grade,'不適用（教師／作者）');
+assert.throws(()=>context.saveSection({...author,requestId:crypto.randomUUID(),student:{...author.student,studentId:'00001234'}}),/作者/);
 context.Session.getEffectiveUser=()=>({getEmail:()=> 'joe.cjcu@gmail.com'});assert.throws(()=>context.setup(),/請用/);
 assert.equal(context.safeCell_(' =IMPORTXML("x")'),'\' =IMPORTXML("x")');
 console.log('PASS：21段23表、逐段草稿、學號文字、重送、續填、密鑰隔離、字數、選項、時數、整份提交、帳號限制');
